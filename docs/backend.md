@@ -16,7 +16,7 @@ deployment at <https://promolens-five.vercel.app>, checked on 2026-11-10:
 | Checked in production                                     | Result                                         |
 | --------------------------------------------------------- | ---------------------------------------------- |
 | Direct browser upload to the private Blob store           | Works, including exactly 25 MB                 |
-| Upload completion, 12 runs from 50 KB to 25 MB            | 12 of 12, each under 1.2 s                     |
+| Upload completion, 15 runs from 50 KB to 25 MB            | 15 of 15, each under 1.2 s                     |
 | A stored file read with no credentials                    | 403 every time                                 |
 | Over 25 MB: a ticket, and a body that lied about its size | Both refused                                   |
 | Completion with no session, or as another editor          | 401 and 404                                    |
