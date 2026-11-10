@@ -1,23 +1,12 @@
 import type { AnalysisJob, JobStage } from "@/domain/analysis-job";
-import { FAILURE_COPY, STAGE_COPY } from "@/client/job-copy";
+import { FAILURE_COPY, PROGRESS_STEPS, STAGE_COPY } from "@/client/job-copy";
 import { formatFileSize, joinClasses } from "@/client/format";
 import type { UploadProgress } from "@/client/service";
 import { BrandMark } from "@/components/brand/brand-mark";
 
-type StageState = "done" | "current" | "failed" | "waiting" | "stopped";
+type StepState = "done" | "current" | "failed" | "waiting" | "stopped";
 
-function stageState(stage: JobStage, active: JobStage, job: AnalysisJob | null): StageState {
-  const order = STAGE_COPY.map((s) => s.id);
-  const position = order.indexOf(stage);
-  const activePosition = order.indexOf(active);
-  if (position < activePosition) return "done";
-  if (position > activePosition) return "waiting";
-  if (job?.state === "failed") return "failed";
-  if (job?.state === "cancelled") return "stopped";
-  return "current";
-}
-
-const STATE_WORD: Record<StageState, string> = {
+const STATE_WORD: Record<StepState, string> = {
   done: "Done",
   current: "In progress",
   failed: "Failed",
@@ -25,7 +14,7 @@ const STATE_WORD: Record<StageState, string> = {
   waiting: "Not started",
 };
 
-function StageIcon({ state }: { state: StageState }) {
+function StepIcon({ state }: { state: StepState }) {
   if (state === "current") return <BrandMark size={20} animated />;
   if (state === "done") {
     return (
@@ -57,12 +46,7 @@ function StageIcon({ state }: { state: StageState }) {
       </span>
     );
   }
-  return (
-    <span
-      aria-hidden="true"
-      className="mx-1 block size-3 rounded-full border-2 border-line-strong"
-    />
-  );
+  return <span aria-hidden="true" className="block size-2.5 rounded-full bg-line-strong/50" />;
 }
 
 export function activeStage(job: AnalysisJob | null): JobStage {
@@ -92,7 +76,25 @@ export function progressLine(job: AnalysisJob | null): string | null {
   return `${done} comparisons made`;
 }
 
-/** Stage-based progress. It shows only what the service has reported, with no invented percent. */
+function stepState(index: number, active: number, job: AnalysisJob | null): StepState {
+  // During the upload, or when the upload itself failed, no step has started.
+  if (active < 0) return "waiting";
+  if (index < active) return "done";
+  if (index > active) return "waiting";
+  if (job?.state === "failed") return "failed";
+  if (job?.state === "cancelled") return "stopped";
+  return "current";
+}
+
+/** What has been counted so far, shown under the step it belongs to. */
+function stepFact(index: number, state: StepState, job: AnalysisJob | null): string | null {
+  const facts = job?.facts;
+  if (index === 0 && facts?.episodes !== undefined) return `${facts.episodes} episodes read`;
+  if (index === 1 && facts?.moments !== undefined) return `${facts.moments} moments found`;
+  return state === "current" ? progressLine(job) : null;
+}
+
+/** A few plain steps, each tied to real server stages. It never shows an invented percent. */
 export function AnalysisProgress({
   job,
   upload,
@@ -100,58 +102,55 @@ export function AnalysisProgress({
   job: AnalysisJob | null;
   upload: UploadProgress | null;
 }) {
-  const active = activeStage(job);
-  const facts = [
-    job?.facts.episodes !== undefined ? `${job.facts.episodes} episodes read` : null,
-    job?.facts.moments !== undefined ? `${job.facts.moments} moments found` : null,
-    progressLine(job),
-  ].filter(Boolean);
+  const stage = activeStage(job);
+  const active = PROGRESS_STEPS.findIndex((step) => step.stages.includes(stage));
 
   return (
     <div>
-      <ol className="space-y-3">
-        {STAGE_COPY.map(({ id, label }) => {
-          const state = stageState(id, active, job);
-          return (
-            <li
-              key={id}
-              aria-current={state === "current" ? "step" : undefined}
-              className="flex items-center gap-3"
-            >
-              <span className="flex w-5 justify-center">
-                <StageIcon state={state} />
-              </span>
-              <span
-                className={joinClasses(
-                  "text-sm",
-                  state === "waiting" && "text-ink-muted",
-                  state === "current" && "font-semibold",
-                  state === "failed" && "font-semibold text-danger",
-                )}
-              >
-                {label}
-              </span>
-              <span className="sr-only">{STATE_WORD[state]}</span>
-            </li>
-          );
-        })}
-      </ol>
       {upload ? (
-        <div className="mt-5">
+        <div className="mb-8">
           <progress
             className="h-1.5 w-full accent-accent-ink"
             max={upload.totalBytes}
             value={upload.loadedBytes}
             aria-label="Upload progress"
           />
-          <p className="mt-1 font-mono text-xs text-ink-muted">
+          <p className="mt-1.5 text-sm text-ink-muted tabular-nums">
             {formatFileSize(upload.loadedBytes)} of {formatFileSize(upload.totalBytes)}
           </p>
         </div>
       ) : null}
-      {facts.length ? (
-        <p className="mt-5 font-mono text-xs text-ink-muted">{facts.join(" · ")}</p>
-      ) : null}
+      <ol className="space-y-4">
+        {PROGRESS_STEPS.map(({ label }, index) => {
+          const state = stepState(index, active, job);
+          const fact = stepFact(index, state, job);
+          return (
+            <li
+              key={label}
+              aria-current={state === "current" ? "step" : undefined}
+              className="flex gap-3"
+            >
+              <span className="flex h-6 w-5 shrink-0 items-center justify-center">
+                <StepIcon state={state} />
+              </span>
+              <div>
+                <p
+                  className={joinClasses(
+                    "leading-6",
+                    state === "waiting" && "text-ink-muted",
+                    state === "current" && "font-semibold",
+                    state === "failed" && "font-semibold text-danger",
+                  )}
+                >
+                  {label}
+                  <span className="sr-only">, {STATE_WORD[state]}</span>
+                </p>
+                {fact ? <p className="text-sm text-ink-muted tabular-nums">{fact}</p> : null}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }

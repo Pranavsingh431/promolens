@@ -4,7 +4,7 @@ import { useId, useRef, useState, type DragEvent } from "react";
 
 import { formatFileSize, joinClasses } from "@/client/format";
 import { UPLOAD_LIMIT_LABEL, checkUpload } from "@/client/upload-rules";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 
 type UploadFormProps = {
   file: File | null;
@@ -16,8 +16,8 @@ type UploadFormProps = {
 
 /**
  * Picks one ZIP and holds it in memory. Nothing is sent anywhere until the
- * editor presses Analyze. The checks here only save a wasted trip: the server
- * inspects every archive itself.
+ * editor presses Find promos. The checks here only save a wasted trip: the
+ * server inspects every archive itself.
  */
 export function UploadForm({ file, onFileChange, onAnalyze, sampleFile }: UploadFormProps) {
   const inputId = useId();
@@ -54,7 +54,7 @@ export function UploadForm({ file, onFileChange, onAnalyze, sampleFile }: Upload
 
   return (
     <div
-      className="group mt-8"
+      className="group mt-10"
       onDragOver={(event) => {
         event.preventDefault();
         setDragging(true);
@@ -80,13 +80,13 @@ export function UploadForm({ file, onFileChange, onAnalyze, sampleFile }: Upload
       {file ? (
         <div
           className={joinClasses(
-            "flex flex-wrap items-center gap-x-4 gap-y-3 rounded-md border bg-surface px-4 py-4",
-            dragging ? "border-accent-ink" : "border-line-strong",
+            "flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border bg-surface px-5 py-4",
+            dragging ? "border-accent-ink" : "border-line",
           )}
         >
           <div className="min-w-0 flex-1 basis-48">
             <p className="font-medium [overflow-wrap:anywhere]">{file.name}</p>
-            <p className="font-mono text-xs text-ink-muted">{formatFileSize(file.size)}</p>
+            <p className="text-sm text-ink-muted tabular-nums">{formatFileSize(file.size)}</p>
           </div>
           <div className="flex items-center gap-4">
             <label
@@ -107,38 +107,22 @@ export function UploadForm({ file, onFileChange, onAnalyze, sampleFile }: Upload
         <label
           htmlFor={inputId}
           className={joinClasses(
-            "flex cursor-pointer flex-col items-center rounded-md border-2 border-dashed px-6 py-12 text-center",
-            dragging ? "border-accent-ink bg-accent/10" : "border-line-strong bg-sunken",
+            "flex cursor-pointer flex-col items-center rounded-lg border-2 border-dashed px-6 py-12 text-center sm:py-14",
+            dragging ? "border-accent-ink bg-accent/10" : "border-line-strong/60 bg-surface",
             focusRing,
           )}
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="28"
-            height="28"
-            aria-hidden="true"
-            focusable="false"
-            className="text-ink-muted"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 15V4" />
-            <path d="M7.5 8.5 12 4l4.5 4.5" />
-            <path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
-          </svg>
-          <span className="mt-3 font-medium">Drop a ZIP of episode screenplays here</span>
-          <span className="mt-1 text-sm text-accent-ink underline underline-offset-4">
-            or choose a file
+          <span className="text-lg font-medium">Drop your screenplay ZIP here</span>
+          <span className="mt-1 text-sm text-ink-muted">or</span>
+          <span className={joinClasses(buttonClass("primary"), "mt-3 px-5 py-2.5 text-base")}>
+            Choose a file
           </span>
         </label>
       )}
 
-      <p id={helpId} className="mt-2 text-sm text-ink-muted">
-        One timestamped text file per episode, up to {UPLOAD_LIMIT_LABEL}. Nothing is uploaded until
-        you press Analyze.
+      <p id={helpId} className="mt-3 text-sm text-ink-muted">
+        One text file per episode, up to {UPLOAD_LIMIT_LABEL}. Nothing is uploaded until you press
+        Find promos.
       </p>
 
       {error ? (
@@ -147,14 +131,20 @@ export function UploadForm({ file, onFileChange, onAnalyze, sampleFile }: Upload
         </p>
       ) : null}
 
-      <div className="mt-5 flex flex-wrap items-center gap-4">
-        {file ? <Button onClick={() => onAnalyze(file)}>Analyze screenplays</Button> : null}
-        {sampleFile && !file ? (
-          <Button variant="secondary" onClick={() => accept([sampleFile()])}>
+      {file ? (
+        <div className="mt-6">
+          <Button onClick={() => onAnalyze(file)} className="px-6 py-3 text-base">
+            Find promos
+          </Button>
+        </div>
+      ) : sampleFile ? (
+        <p className="mt-4 text-sm text-ink-muted">
+          Just exploring?{" "}
+          <Button variant="quiet" onClick={() => accept([sampleFile()])}>
             Use the sample show
           </Button>
-        ) : null}
-      </div>
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -16,18 +16,17 @@ function collectErrors(page: Page): string[] {
 async function startDemo(page: Page, scenario = "complete") {
   await page.goto(`/demo?scenario=${scenario}&pace=fast`);
   await page.getByRole("button", { name: "Use the sample show" }).click();
-  await page.getByRole("button", { name: "Analyze screenplays" }).click();
+  await page.getByRole("button", { name: "Find promos" }).click();
 }
 
 const card = (page: Page, rank: number) =>
-  page.getByRole("button", { name: new RegExp(`Inspect recommendation ${rank}:`) });
+  page.getByRole("button", { name: `View clip details for promo ${rank}`, exact: true });
 const isWide = (page: Page) => (page.viewportSize()?.width ?? 0) >= 1024;
+const detailOf = (page: Page) => page.getByRole("dialog", { name: "Promo details" });
 
 async function openDetail(page: Page, rank: number) {
   await card(page, rank).click();
-  const region = isWide(page)
-    ? page.getByRole("complementary", { name: "Promo details" })
-    : page.getByRole("dialog", { name: "Promo details" });
+  const region = detailOf(page);
   await expect(region.getByRole("heading", { name: `Promo ${rank}` })).toBeVisible();
   return region;
 }
@@ -46,7 +45,7 @@ test.describe("the real workspace", () => {
       buffer: Buffer.from("not really a zip"),
     });
     await expect(page.getByText("show.zip")).toBeVisible();
-    await page.getByRole("button", { name: "Analyze screenplays" }).click();
+    await page.getByRole("button", { name: "Find promos" }).click();
     await expect(
       page.getByRole("heading", { name: "Analysis is not connected yet" }),
     ).toBeVisible();
@@ -96,13 +95,17 @@ test.describe("the labelled demo", () => {
     const errors = collectErrors(page);
     await page.goto("/demo?scenario=complete");
     await page.getByRole("button", { name: "Use the sample show" }).click();
-    await page.getByRole("button", { name: "Analyze screenplays" }).click();
-    await expect(page.getByRole("status").first()).toContainText(/Sending|Making sure|Reading/);
+    await page.getByRole("button", { name: "Find promos" }).click();
+    await expect(page.getByRole("heading", { name: "Finding promos" })).toBeVisible();
+    await expect(page.getByRole("status").first()).toContainText(/Uploading|Checking|Reading/);
     await expect(page.locator('[aria-current="step"]')).toBeVisible();
     await expect(page.getByRole("heading", { name: "Ranked promos" })).toBeVisible({
       timeout: 15_000,
     });
-    await expect(card(page, 1)).toContainText("Episode 1 · 00:05.00 to 00:31.00");
+    await expect(card(page, 1).locator("xpath=ancestor::article")).toContainText(
+      "Episode 1 · 00:05.00 to 00:31.00",
+    );
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByText("No person has rated them")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Ranked promos" })).toBeFocused();
     expect(errors).toEqual([]);
@@ -111,7 +114,7 @@ test.describe("the labelled demo", () => {
   test("can be cancelled while running", async ({ page }) => {
     await page.goto("/demo?scenario=complete");
     await page.getByRole("button", { name: "Use the sample show" }).click();
-    await page.getByRole("button", { name: "Analyze screenplays" }).click();
+    await page.getByRole("button", { name: "Find promos" }).click();
     await page.getByRole("button", { name: "Cancel analysis" }).click();
     await expect(page.getByRole("heading", { name: "Analysis stopped" })).toBeVisible();
   });
@@ -188,27 +191,30 @@ test.describe("inspecting a promo", () => {
 
   test("shows a provider refusal without a score", async ({ page }) => {
     await startDemo(page);
-    await page.getByRole("button", { name: /Inspect unevaluated moment/ }).click();
-    const detail = isWide(page)
-      ? page.getByRole("complementary", { name: "Promo details" })
-      : page.getByRole("dialog", { name: "Promo details" });
+    await page.getByRole("button", { name: /for unevaluated moment/ }).click();
+    const detail = detailOf(page);
     await expect(detail.getByRole("heading", { name: "Not evaluated" })).toBeVisible();
     await expect(detail.getByText(/That is not a rejection/)).toBeVisible();
     await expect(detail.getByText("Editorial score")).toHaveCount(0);
   });
 });
 
-test("wide screens show the list and the detail together", async ({ page }) => {
+test("wide screens open the detail beside the list, with next and previous", async ({ page }) => {
   test.skip(!isWide(page), "wide layout only");
   await startDemo(page);
-  const panel = page.getByRole("complementary", { name: "Promo details" });
-  await expect(panel.getByRole("heading", { name: "Promo 1" })).toBeVisible();
-  await expect(card(page, 2)).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await card(page, 3).focus();
   await page.keyboard.press("Enter");
+  const panel = detailOf(page);
   await expect(panel.getByRole("heading", { name: "Promo 3" })).toBeFocused();
+  // The panel takes part of the screen, so the list stays in view beside it.
+  const box = await panel.boundingBox();
+  expect(box?.width ?? 0).toBeLessThan(page.viewportSize()?.width ?? 0);
+  await panel.getByRole("button", { name: "Next promo" }).click();
+  await expect(panel.getByRole("heading", { name: "Promo 4" })).toBeFocused();
   await panel.getByRole("button", { name: "Close" }).click();
-  await expect(card(page, 3)).toBeFocused();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(card(page, 4)).toBeFocused();
 });
 
 test("small screens use a full-screen view that Back and Escape close", async ({ page }) => {
@@ -265,7 +271,7 @@ test("respects a reduced-motion preference", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/demo?scenario=complete");
   await page.getByRole("button", { name: "Use the sample show" }).click();
-  await page.getByRole("button", { name: "Analyze screenplays" }).click();
+  await page.getByRole("button", { name: "Find promos" }).click();
   const animations = await page.evaluate(
     () => document.getAnimations().filter((a) => a.playState === "running").length,
   );

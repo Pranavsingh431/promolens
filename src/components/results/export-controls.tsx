@@ -6,9 +6,10 @@ import { saveFile } from "@/client/export";
 import { toServiceError, type AnalysisService, type ExportFormat } from "@/client/service";
 import { Button } from "@/components/ui/button";
 
-const OPTIONS: ReadonlyArray<{ format: ExportFormat; label: string }> = [
-  { format: "promos-csv", label: "Download CSV" },
-  { format: "promos-json", label: "Download JSON" },
+const OPTIONS: ReadonlyArray<{ format: ExportFormat; label: string; name: string }> = [
+  { format: "promos-csv", label: "CSV", name: "Download CSV" },
+  { format: "promos-json", label: "JSON", name: "Download JSON" },
+  { format: "ranking-json", label: "Full report", name: "Download full report" },
 ];
 
 export function useExport(service: AnalysisService, jobId: string) {
@@ -38,6 +39,7 @@ export function useExport(service: AnalysisService, jobId: string) {
   return { busy, status, download };
 }
 
+/** Downloads are a secondary step, so they sit as quiet links rather than big buttons. */
 export function ExportControls({
   service,
   jobId,
@@ -50,12 +52,14 @@ export function ExportControls({
 }) {
   const { busy, status, download } = useExport(service, jobId);
   return (
-    <div className="sm:text-right">
-      <div className="flex flex-wrap gap-2 sm:justify-end">
-        {OPTIONS.map(({ format, label }, index) => (
+    <div className="text-sm sm:text-right">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:justify-end">
+        <span className="text-ink-muted">Download</span>
+        {OPTIONS.map(({ format, label, name }) => (
           <Button
             key={format}
-            variant={index === 0 ? "primary" : "secondary"}
+            variant="quiet"
+            aria-label={name}
             disabled={busy !== null}
             onClick={() => void download(format)}
           >
@@ -69,7 +73,7 @@ export function ExportControls({
       >
         {status?.message ?? ""}
       </p>
-      {missingNote ? <p className="mt-1 max-w-sm text-xs text-ink-muted">{missingNote}</p> : null}
+      {missingNote ? <p className="mt-1 max-w-xs text-xs text-ink-muted">{missingNote}</p> : null}
     </div>
   );
 }

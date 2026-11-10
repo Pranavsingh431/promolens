@@ -13,14 +13,24 @@ function Harness({ onAnalyze = () => {} }: { onAnalyze?: (file: File) => void })
   return <UploadForm file={file} onFileChange={setFile} onAnalyze={onAnalyze} />;
 }
 
-const picker = () => screen.getByLabelText(/Drop a ZIP/) as HTMLInputElement;
+const picker = () => screen.getByLabelText(/Drop your screenplay ZIP/) as HTMLInputElement;
 
 describe("the upload form", () => {
   it("shows the size limit and promises nothing is sent yet", () => {
     render(<Harness />);
     expect(screen.getByText(/up to 25 MB/)).toBeTruthy();
-    expect(screen.getByText(/Nothing is uploaded until you press Analyze/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Analyze screenplays" })).toBeNull();
+    expect(screen.getByText(/Nothing is uploaded until you press Find promos/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Find promos" })).toBeNull();
+  });
+
+  it("offers one primary action at a time: choose a file, then find promos", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    expect(screen.getByText("Choose a file")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Find promos" })).toBeNull();
+    await user.upload(picker(), zip());
+    expect(screen.queryByText("Choose a file")).toBeNull();
+    expect(screen.getByRole("button", { name: "Find promos" })).toBeTruthy();
   });
 
   it("has one labelled, keyboard-reachable control for choosing a file", async () => {
@@ -31,7 +41,7 @@ describe("the upload form", () => {
     expect(picker().getAttribute("aria-describedby")).toBeTruthy();
   });
 
-  it("shows the chosen file and its size, and only sends it on Analyze", async () => {
+  it("shows the chosen file and its size, and only sends it on Find promos", async () => {
     const user = userEvent.setup();
     const onAnalyze = vi.fn();
     render(<Harness onAnalyze={onAnalyze} />);
@@ -39,7 +49,7 @@ describe("the upload form", () => {
     expect(screen.getByText("season-one.zip")).toBeTruthy();
     expect(screen.getByText("2.0 KB")).toBeTruthy();
     expect(onAnalyze).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Analyze screenplays" }));
+    await user.click(screen.getByRole("button", { name: "Find promos" }));
     expect(onAnalyze).toHaveBeenCalledTimes(1);
   });
 

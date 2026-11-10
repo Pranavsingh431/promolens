@@ -22,6 +22,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { StatusPill } from "@/components/ui/status-pill";
 
 import { ComparePromos } from "./compare-promos";
+import { attentionNotes } from "./promo-card";
 
 type Evidence = Recommendation["hook"]["evidence"];
 
@@ -32,34 +33,95 @@ type SharedDetailProps = {
   closeLabel: string;
 };
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Block({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="border-t border-line px-5 py-4 sm:px-6">
+    <section>
       <h3 className="text-sm font-semibold">{title}</h3>
-      <div className="mt-2 text-sm">{children}</div>
+      <div className="mt-1.5">{children}</div>
     </section>
+  );
+}
+
+/** A closed-by-default section for detail that most editors will not need. */
+function More({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <details className="border-t border-line px-5 py-4 text-sm sm:px-8">
+      <summary className="cursor-pointer font-semibold">{title}</summary>
+      <div className="mt-3">{children}</div>
+    </details>
+  );
+}
+
+export type DetailNav = {
+  previous: (() => void) | null;
+  next: (() => void) | null;
+  /** For example "promo" or "alternative", used in the button names. */
+  noun: string;
+};
+
+function Chevron({ direction }: { direction: "left" | "right" }) {
+  return (
+    <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" focusable="false">
+      <path
+        d={direction === "left" ? "M12.5 4.5 7 10l5.5 5.5" : "M7.5 4.5 13 10l-5.5 5.5"}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function NavButtons({ nav }: { nav: DetailNav }) {
+  const style =
+    "inline-flex size-9 cursor-pointer items-center justify-center rounded-sm border border-line-strong bg-surface text-ink hover:bg-sunken disabled:cursor-not-allowed disabled:opacity-40";
+  return (
+    <div className="flex gap-1.5">
+      <button
+        type="button"
+        className={style}
+        disabled={!nav.previous}
+        onClick={() => nav.previous?.()}
+        aria-label={`Previous ${nav.noun}`}
+        title={`Previous ${nav.noun}`}
+      >
+        <Chevron direction="left" />
+      </button>
+      <button
+        type="button"
+        className={style}
+        disabled={!nav.next}
+        onClick={() => nav.next?.()}
+        aria-label={`Next ${nav.noun}`}
+        title={`Next ${nav.noun}`}
+      >
+        <Chevron direction="right" />
+      </button>
+    </div>
   );
 }
 
 function DetailHeader({
   heading,
   sub,
-  pills,
   headingRef,
   onClose,
   closeLabel,
+  nav,
 }: {
   heading: string;
   sub: string;
-  pills: ReactNode;
   headingRef: RefObject<HTMLHeadingElement | null>;
   onClose: () => void;
   closeLabel: string;
+  nav?: DetailNav | undefined;
 }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-surface px-5 py-4 sm:px-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
+    <header className="sticky top-0 z-20 border-b border-line bg-surface px-5 py-3 sm:px-8 sm:py-4">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
           <h2
             ref={headingRef}
             tabIndex={-1}
@@ -67,13 +129,13 @@ function DetailHeader({
           >
             {heading}
           </h2>
-          <p className="mt-0.5 font-mono text-xs text-ink-muted">{sub}</p>
+          <p className="mt-0.5 text-sm text-ink-muted tabular-nums">{sub}</p>
         </div>
+        {nav ? <NavButtons nav={nav} /> : null}
         <Button variant="secondary" onClick={onClose} className="shrink-0">
           {closeLabel}
         </Button>
       </div>
-      <div className="mt-2 flex flex-wrap gap-1.5">{pills}</div>
     </header>
   );
 }
@@ -130,19 +192,19 @@ function EvidenceList({
   onSelect: (eventId: string) => void;
 }) {
   if (items.length === 0) {
-    return <p className="mt-2 text-ink-muted">No script lines were cited for this.</p>;
+    return <p className="mt-2 text-sm text-ink-muted">No script lines were cited for this.</p>;
   }
   return (
-    <ul className="mt-2 space-y-1" aria-label={label}>
+    <ul className="mt-3 space-y-1.5" aria-label={label}>
       {items.map((item) => (
         <li key={item.eventId}>
           <button
             type="button"
             onClick={() => onSelect(item.eventId)}
-            className="w-full cursor-pointer rounded-sm border-l-2 border-accent-ink bg-sunken px-3 py-2 text-left hover:bg-accent/10"
+            className="w-full cursor-pointer rounded-sm border-l-2 border-accent-ink bg-sunken px-3 py-2 text-left text-sm hover:bg-accent/10"
           >
             <span className="sr-only">Show in the timeline: </span>
-            <span className="block font-mono text-xs text-ink-muted">
+            <span className="block text-xs text-ink-muted tabular-nums">
               Episode {item.episode} · {item.start} to {item.end} ·{" "}
               {item.speaker ?? KIND_LABEL[item.kind]}
             </span>
@@ -241,9 +303,8 @@ function CriteriaScores({ criteria }: { criteria: Recommendation["criteria"] }) 
 function Provenance({ promo }: { promo: Recommendation }) {
   const pairwise = promo.ranking.pairwise;
   return (
-    <details className="border-t border-line px-5 py-4 text-sm sm:px-6">
-      <summary className="cursor-pointer font-semibold">How this clip was found and ranked</summary>
-      <dl className="mt-2 space-y-2">
+    <More title="How this clip was found and ranked">
+      <dl className="space-y-2">
         <div>
           <dt className="font-medium">Found by</dt>
           <dd className="text-ink-muted">
@@ -279,7 +340,7 @@ function Provenance({ promo }: { promo: Recommendation }) {
           </dd>
         </div>
       </dl>
-    </details>
+    </More>
   );
 }
 
@@ -350,6 +411,27 @@ function TimelineSection({
   );
 }
 
+function TheCut({ segments }: { segments: Recommendation["segments"] }) {
+  const only = segments.length === 1 ? segments[0] : null;
+  if (!only) return <SegmentTable segments={segments} />;
+  const items: Array<[string, string]> = [
+    ["Episode", String(only.episode)],
+    ["Start", only.start],
+    ["End", only.end],
+    ["Length", formatSeconds(only.endMs - only.startMs)],
+  ];
+  return (
+    <dl className="flex flex-wrap gap-x-8 gap-y-2">
+      {items.map(([label, value]) => (
+        <div key={label}>
+          <dt className="text-xs text-ink-muted">{label}</dt>
+          <dd className="font-medium tabular-nums">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 export function PromoDetail({
   row,
   rows,
@@ -357,8 +439,9 @@ export function PromoDetail({
   headingRef,
   onClose,
   closeLabel,
-}: SharedDetailProps & { row: PromoRow; rows: readonly PromoRow[] }) {
-  const { promo, status, displayRank, review, warnings } = row;
+  nav,
+}: SharedDetailProps & { row: PromoRow; rows: readonly PromoRow[]; nav?: DetailNav }) {
+  const { promo, status, displayRank, warnings } = row;
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const hookIds = useMemo(() => new Set(promo.hook.evidence.map((e) => e.eventId)), [promo]);
   const endingIds = useMemo(
@@ -369,6 +452,8 @@ export function PromoDetail({
     () => [...promo.hook.evidence, ...promo.cliffhanger.evidence],
     [promo],
   );
+  const attention = attentionNotes(row);
+  const minor = warnings.filter((note) => note.severity === "minor");
   const first = promo.segments[0];
   const where =
     promo.segments.length > 1
@@ -386,98 +471,100 @@ export function PromoDetail({
     <div>
       <DetailHeader
         heading={status === "recommended" ? `Promo ${displayRank}` : "Alternative"}
-        sub={`${where} · ${formatSeconds(promo.durationMs)} total`}
+        sub={`${where} · ${formatSeconds(promo.durationMs)}`}
         headingRef={headingRef}
         onClose={onClose}
         closeLabel={closeLabel}
-        pills={
-          <>
-            <StatusPill tone={status === "recommended" ? "accent" : "neutral"}>
-              {status === "recommended" ? "Recommended" : "Alternative"}
-            </StatusPill>
-            <StatusPill>
-              Editorial score {promo.editorialScore.toFixed(1)} · {TIER_LABEL[promo.tier]}
-            </StatusPill>
-            {review.length ? <StatusPill tone="caution">Needs review</StatusPill> : null}
-          </>
-        }
+        nav={nav}
       />
 
-      <div className="px-5 py-4 sm:px-6">
-        <p className="text-base [overflow-wrap:anywhere]">{promo.whyItWorks}</p>
+      <div className="space-y-7 px-5 py-6 sm:px-8">
+        <p className="text-lg leading-relaxed [overflow-wrap:anywhere]">{promo.whyItWorks}</p>
+
+        {attention.length ? (
+          <section className="rounded-md border border-accent-ink/50 px-4 py-3">
+            <h3 className="text-sm font-semibold text-accent-ink">Check before posting</h3>
+            <ul className="mt-1.5 space-y-1 text-sm">
+              {attention.map((note) => (
+                <li key={note.code}>
+                  <span className="font-medium">{note.label}. </span>
+                  <span className="text-ink-muted">{note.detail}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        <Block title="What happens">
+          <p className="[overflow-wrap:anywhere]">{promo.standaloneClarity.happening.text}</p>
+        </Block>
+
+        <Block title={promo.segments.length > 1 ? "The cut, in playing order" : "The cut"}>
+          <TheCut segments={promo.segments} />
+        </Block>
+
+        <Block title="The hook">
+          <p className="[overflow-wrap:anywhere]">{promo.hook.explanation}</p>
+          {promo.hook.question ? (
+            <p className="mt-1 text-ink-muted [overflow-wrap:anywhere]">
+              It makes a viewer ask: {promo.hook.question}
+            </p>
+          ) : null}
+          <EvidenceList
+            items={promo.hook.evidence}
+            label="Script lines behind the hook"
+            onSelect={showInTimeline}
+          />
+        </Block>
+
+        <Block title="The ending">
+          <p className="[overflow-wrap:anywhere]">{promo.cliffhanger.explanation}</p>
+          <p className="mt-1 text-ink-muted [overflow-wrap:anywhere]">
+            Left open: {describeTension(promo.cliffhanger.tension).toLowerCase()}.
+            {promo.cliffhanger.reasonToContinue ? ` ${promo.cliffhanger.reasonToContinue}` : ""}
+          </p>
+          <EvidenceList
+            items={promo.cliffhanger.evidence}
+            label="Script lines behind the ending"
+            onSelect={showInTimeline}
+          />
+        </Block>
+
+        <div ref={timelineArea} className="scroll-mt-24">
+          <Block title="In the script">
+            <TimelineSection
+              cache={cache}
+              segments={promo.segments}
+              hookIds={hookIds}
+              endingIds={endingIds}
+              selectedId={selectedEvent}
+              onSelect={setSelectedEvent}
+              evidence={allEvidence}
+            />
+          </Block>
+        </div>
       </div>
 
-      {review.length ? (
-        <Section title="Check before posting">
-          <ul className="space-y-1.5">
-            {review.map((note) => (
-              <li key={note.code}>
-                <span className="font-medium">{note.label}. </span>
-                <span className="text-ink-muted">{note.detail}</span>
-              </li>
-            ))}
-          </ul>
-        </Section>
-      ) : null}
-
-      <Section title="Where it is in the script">
-        <SegmentTable segments={promo.segments} />
-        <div ref={timelineArea} className="mt-4 scroll-mt-32">
-          <TimelineSection
-            cache={cache}
-            segments={promo.segments}
-            hookIds={hookIds}
-            endingIds={endingIds}
-            selectedId={selectedEvent}
-            onSelect={setSelectedEvent}
-            evidence={allEvidence}
-          />
+      <More title="Score and full assessment">
+        <p className="text-ink-muted">
+          Editorial score{" "}
+          <span className="font-medium text-ink tabular-nums">
+            {promo.editorialScore.toFixed(1)}
+          </span>{" "}
+          of 100, {TIER_LABEL[promo.tier].toLowerCase()}. It comes from AI ratings checked against
+          the script, and it is not a prediction of views.
+        </p>
+        <div className="mt-4">
+          <CriteriaScores criteria={promo.criteria} />
         </div>
-      </Section>
-
-      <Section title="The hook">
-        <p className="[overflow-wrap:anywhere]">{promo.hook.explanation}</p>
-        {promo.hook.question ? (
-          <p className="mt-1 text-ink-muted [overflow-wrap:anywhere]">
-            It makes a viewer ask: {promo.hook.question}
-          </p>
-        ) : null}
-        <EvidenceList
-          items={promo.hook.evidence}
-          label="Script lines behind the hook"
-          onSelect={showInTimeline}
-        />
-      </Section>
-
-      <Section title="The ending">
-        <p className="[overflow-wrap:anywhere]">{promo.cliffhanger.explanation}</p>
-        <p className="mt-1 text-ink-muted [overflow-wrap:anywhere]">
-          Left open: {describeTension(promo.cliffhanger.tension).toLowerCase()}.
-          {promo.cliffhanger.reasonToContinue ? ` ${promo.cliffhanger.reasonToContinue}` : ""}
-        </p>
-        <EvidenceList
-          items={promo.cliffhanger.evidence}
-          label="Script lines behind the ending"
-          onSelect={showInTimeline}
-        />
-      </Section>
-
-      <Section title="Would a new viewer follow it?">
-        <ClarityAssessment clarity={promo.standaloneClarity} />
-      </Section>
-
-      <Section title="Editorial score">
-        <p className="mb-3 text-xs text-ink-muted">
-          {promo.editorialScore.toFixed(1)} of 100, from AI ratings checked against the script. Not
-          a prediction of views.
-        </p>
-        <CriteriaScores criteria={promo.criteria} />
-      </Section>
-
-      <Section title="Weak points and warnings">
-        {warnings.length ? (
-          <ul className="space-y-1.5">
-            {warnings.map((note) => (
+        <h4 className="mt-6 font-semibold">Would a new viewer follow it?</h4>
+        <div className="mt-2">
+          <ClarityAssessment clarity={promo.standaloneClarity} />
+        </div>
+        <h4 className="mt-6 font-semibold">Other notes</h4>
+        {minor.length ? (
+          <ul className="mt-2 space-y-1.5">
+            {minor.map((note) => (
               <li key={note.code}>
                 <span className="font-medium">{note.label}. </span>
                 <span className="text-ink-muted">{note.detail}</span>
@@ -485,10 +572,9 @@ export function PromoDetail({
             ))}
           </ul>
         ) : (
-          <p className="text-ink-muted">No warnings for this clip.</p>
+          <p className="mt-2 text-ink-muted">Nothing else to note.</p>
         )}
-      </Section>
-
+      </More>
       <ComparePromos current={row} rows={rows} />
       <Provenance promo={promo} />
     </div>
@@ -511,34 +597,36 @@ export function UnevaluatedDetail({
     <div>
       <DetailHeader
         heading="Not evaluated"
-        sub={`${first ? `Episode ${first.episode} · ${formatRange(first.startMs, first.endMs)} · ` : ""}${formatSeconds(row.durationMs)} total`}
+        sub={`${first ? `Episode ${first.episode} · ${formatRange(first.startMs, first.endMs)} · ` : ""}${formatSeconds(row.durationMs)}`}
         headingRef={headingRef}
         onClose={onClose}
         closeLabel={closeLabel}
-        pills={
-          <StatusPill tone="danger">
+      />
+      <div className="space-y-7 px-5 py-6 sm:px-8">
+        <section className="rounded-md border border-danger/40 px-4 py-3 text-sm">
+          <h3 className="font-semibold text-danger">
             {row.reason === "provider-refused"
               ? "AI provider declined to review"
               : "Evaluation failed"}
-          </StatusPill>
-        }
-      />
-      <div className="px-5 py-4 text-sm text-ink-muted sm:px-6">
-        {row.reason === "provider-refused"
-          ? "The AI provider's content filter declined this moment, so it has no score and no explanation. That is not a rejection, and filters can catch intense scenes that make good promos. Read it below and decide for yourself."
-          : "Evaluation did not finish for this moment, so it has no score and no explanation. Read it below and decide for yourself."}
+          </h3>
+          <p className="mt-1 text-ink-muted">
+            {row.reason === "provider-refused"
+              ? "The AI provider's content filter declined this moment, so it has no score and no explanation. That is not a rejection, and filters can catch intense scenes that make good promos. Read it below and decide for yourself."
+              : "Evaluation did not finish for this moment, so it has no score and no explanation. Read it below and decide for yourself."}
+          </p>
+        </section>
+        <Block title="In the script">
+          <TimelineSection
+            cache={cache}
+            segments={row.segments}
+            hookIds={NO_IDS}
+            endingIds={NO_IDS}
+            selectedId={selectedEvent}
+            onSelect={setSelectedEvent}
+            evidence={[]}
+          />
+        </Block>
       </div>
-      <Section title="Where it is in the script">
-        <TimelineSection
-          cache={cache}
-          segments={row.segments}
-          hookIds={NO_IDS}
-          endingIds={NO_IDS}
-          selectedId={selectedEvent}
-          onSelect={setSelectedEvent}
-          evidence={[]}
-        />
-      </Section>
     </div>
   );
 }

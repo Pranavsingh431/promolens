@@ -20,8 +20,8 @@ beforeEach(() => {
 async function analyze(service: AnalysisService) {
   const user = userEvent.setup();
   render(<Workspace service={service} />);
-  await user.upload(screen.getByLabelText(/Drop a ZIP/), zipFile("show.zip"));
-  await user.click(screen.getByRole("button", { name: "Analyze screenplays" }));
+  await user.upload(screen.getByLabelText(/Drop your screenplay ZIP/), zipFile("show.zip"));
+  await user.click(screen.getByRole("button", { name: "Find promos" }));
   return user;
 }
 
@@ -47,12 +47,14 @@ describe("the workspace", () => {
         return base.getJob(id);
       },
     });
+    expect(await screen.findByRole("heading", { name: "Finding promos" })).toBeTruthy();
+    expect(screen.getByText("show.zip")).toBeTruthy();
     const status = await screen.findByRole("status");
-    expect(status.textContent).toBe("Finding promising moments across your episodes.");
+    expect(status.textContent).toBe("Looking for promising moments in every episode.");
     expect(document.body.textContent).not.toMatch(/\d+\s*%/);
     expect(screen.getByText("12 episodes read")).toBeTruthy();
     const current = document.querySelector('[aria-current="step"]');
-    expect(current?.textContent).toContain("Find moments");
+    expect(current?.textContent).toContain("Finding promising moments");
     expect(current?.textContent).toContain("In progress");
     release();
   });
@@ -98,7 +100,7 @@ describe("the workspace", () => {
     const user = await analyze({ ...base, startAnalysis: startSpy });
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("This ZIP could not be read");
-    expect(screen.getByText("Check the file").closest("li")?.textContent).toContain("Failed");
+    expect(screen.getByText("Reading episodes").closest("li")?.textContent).toContain("Failed");
     await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(startSpy).toHaveBeenCalledTimes(2);
   });
@@ -137,6 +139,6 @@ describe("the workspace", () => {
     await user.click(await screen.findByRole("button", { name: "Choose another file" }));
     await act(async () => {});
     expect(screen.queryByText("show.zip")).toBeNull();
-    expect(screen.getByLabelText(/Drop a ZIP/)).toBeTruthy();
+    expect(screen.getByLabelText(/Drop your screenplay ZIP/)).toBeTruthy();
   });
 });

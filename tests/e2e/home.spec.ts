@@ -16,7 +16,7 @@ test("home page shows the workspace without pretending analysis exists", async (
   await expect(page).toHaveTitle("PromoLens");
   await expect(page.getByRole("link", { name: "PromoLens home" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Find the moments that make people stop scrolling.",
+    "Find promos in your screenplays",
   );
   await expect(page.getByText("This preview cannot analyze screenplays yet.")).toBeVisible();
   await expect(page.locator('input[type="file"]')).toHaveCount(1);

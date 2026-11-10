@@ -41,7 +41,7 @@ export function DemoWorkspace({ scenario, pace }: { scenario: DemoScenario; pace
   return (
     <>
       <div className="border-b border-line bg-sunken">
-        <div className="mx-auto flex max-w-workspace flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-2.5 sm:px-6">
+        <div className="mx-auto flex max-w-workspace flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-2 sm:px-6">
           <p className="text-sm">
             <span className="font-semibold">Demo.</span>{" "}
             <span className="text-ink-muted">
@@ -49,7 +49,7 @@ export function DemoWorkspace({ scenario, pace }: { scenario: DemoScenario; pace
             </span>
           </p>
           <label className="flex items-center gap-2 text-sm text-ink-muted">
-            Show
+            Example
             <select
               value={scenario}
               onChange={(event) => router.replace(`/demo?scenario=${event.target.value}`)}

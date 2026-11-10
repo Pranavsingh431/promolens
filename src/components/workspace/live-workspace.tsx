@@ -66,6 +66,7 @@ function ConnectedWorkspace({ name, initialJobId }: { name: string; initialJobId
       whenVisible={whenVisible}
       onSignInAgain={() => router.refresh()}
       {...(initialJobId ? { initialJobId } : {})}
+      progressNote="This can take a few minutes. You can close this page: the analysis keeps running, and it will be waiting under Earlier analyses."
       note={
         <p className="flex flex-wrap items-center gap-x-3">
           <span>Signed in as {name}.</span>

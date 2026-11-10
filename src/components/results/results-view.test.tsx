@@ -43,8 +43,16 @@ function show(
 }
 
 const card = (rank: number) =>
-  screen.getByRole("button", { name: new RegExp(`Inspect recommendation ${rank}:`) });
+  screen.getByRole("button", { name: `View clip details for promo ${rank}` });
 const cardOf = (rank: number) => card(rank).closest("article") as HTMLElement;
+const detail = () => screen.findByRole("dialog", { name: "Promo details" });
+
+/** Back closes the detail; jsdom does not fire popstate on its own. */
+function mockBack() {
+  return vi.spyOn(window.history, "back").mockImplementation(() => {
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+}
 
 describe("ranked recommendations", () => {
   it("shows rank, episode, exact times, duration, hook, ending, reason, and score", () => {
@@ -55,9 +63,21 @@ describe("ranked recommendations", () => {
     expect(first.textContent).toContain("My name was crossed out");
     expect(first.textContent).toContain("the cargo is gone");
     expect(first.textContent).toContain("catches the captain in a lie");
-    expect(within(first).getByText("Editorial score")).toBeTruthy();
+    expect(first.textContent).toContain("Editorial score 93.8");
     expect(within(first).getByText("93.8")).toBeTruthy();
-    expect(within(first).getByText("Recommended")).toBeTruthy();
+    expect(within(first).getByRole("heading", { level: 3 }).textContent).toContain(
+      "catches the captain in a lie",
+    );
+  });
+
+  it("keeps each card to what an editor needs first", () => {
+    show();
+    const first = cardOf(1);
+    // The full assessment waits in the detail view.
+    expect(first.textContent).not.toContain("Would a new viewer follow it?");
+    expect(first.textContent).not.toContain("of 4");
+    expect(first.textContent).not.toMatch(/Excellent|Strong|Usable/);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("never describes the score as a forecast, and says no person rated these", () => {
@@ -72,27 +92,28 @@ describe("ranked recommendations", () => {
     show();
     const multi = cardOf(2);
     expect(multi.textContent).toContain("Episode 1 · 00:49.50 to 01:02.40");
-    expect(multi.textContent).toContain("then Episode 3 · 00:49.40 to 01:01.00");
+    expect(multi.textContent).toContain(", then Episode 3 · 00:49.40 to 01:01.00");
     expect(multi.textContent).toContain("2 segments · 24.5 s");
   });
 
   it("flags review and important warnings on the card, keeping minor ones for the detail", () => {
     show();
-    expect(within(cardOf(4)).getByText("Needs review: Check clarity")).toBeTruthy();
-    expect(within(cardOf(5)).getByText("Cuts a line at the end")).toBeTruthy();
-    expect(within(cardOf(5)).getByText("Cuts a line at the start")).toBeTruthy();
-    expect(within(cardOf(1)).queryByText(/Needs review/)).toBeNull();
+    expect(cardOf(4).textContent).toContain("Check before posting: Check clarity");
+    expect(cardOf(4).textContent).not.toContain("Leans on earlier episodes");
+    expect(cardOf(5).textContent).toContain("Cuts a line at the end");
+    expect(cardOf(5).textContent).toContain("Cuts a line at the start");
+    expect(cardOf(1).textContent).not.toContain("Check before posting");
   });
 
   it("shows alternatives on request and links a repeat to what it repeats", async () => {
     const user = userEvent.setup();
     show();
-    expect(screen.queryByRole("button", { name: /Inspect alternative/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /for alternative/ })).toBeNull();
     const summary = screen.getByText("Alternatives (2)");
     await user.click(summary);
     (summary.closest("details") as HTMLDetailsElement).dispatchEvent(new Event("toggle"));
     await waitFor(() =>
-      expect(screen.getAllByRole("button", { name: /Inspect alternative/ })).toHaveLength(2),
+      expect(screen.getAllByRole("button", { name: /for alternative/ })).toHaveLength(2),
     );
     expect(screen.getByText("Repeats recommendation 1")).toBeTruthy();
   });
@@ -142,48 +163,83 @@ describe("ranked recommendations", () => {
 });
 
 describe("the detail view", () => {
-  it("opens the top pick beside the list on a wide screen, without stealing focus", async () => {
-    show();
-    const panel = screen.getByRole("complementary", { name: "Promo details" });
-    expect(within(panel).getByRole("heading", { name: "Promo 1" })).toBeTruthy();
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(panel.contains(document.activeElement)).toBe(false);
+  it("opens only when asked, on any screen size", async () => {
+    for (const wide of [true, false]) {
+      const { unmount } = show({ wide });
+      expect(screen.queryByRole("dialog")).toBeNull();
+      await userEvent.setup().click(card(1));
+      const panel = await detail();
+      expect((panel as HTMLDialogElement).open).toBe(true);
+      expect(within(panel).getByRole("heading", { name: "Promo 1" })).toBeTruthy();
+      unmount();
+    }
   });
 
-  it("moves focus into the panel on activation, and returns it to the card on close", async () => {
+  it("moves focus into the detail on activation, and returns it to the card on close", async () => {
     const user = userEvent.setup();
+    const back = mockBack();
     show();
     card(3).focus();
     await user.keyboard("{Enter}");
-    const panel = screen.getByRole("complementary", { name: "Promo details" });
+    const panel = await detail();
     const heading = within(panel).getByRole("heading", { name: "Promo 3" });
     await waitFor(() => expect(document.activeElement).toBe(heading));
     await user.click(within(panel).getByRole("button", { name: "Close" }));
-    expect(document.activeElement).toBe(card(3));
-    expect(within(panel).queryByRole("heading", { name: "Promo 3" })).toBeNull();
-  });
-
-  it("uses a modal dialog on a small screen and closes it with Back to list", async () => {
-    const user = userEvent.setup();
-    const back = vi.spyOn(window.history, "back").mockImplementation(() => {
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    });
-    show({ wide: false });
-    expect(screen.queryByRole("dialog")).toBeNull();
-    await user.click(card(1));
-    const dialog = await screen.findByRole("dialog", { name: "Promo details" });
-    expect((dialog as HTMLDialogElement).open).toBe(true);
-    await user.click(within(dialog).getByRole("button", { name: "Back to list" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(back).toHaveBeenCalled();
+    expect(document.activeElement).toBe(card(3));
     back.mockRestore();
+  });
+
+  it("steps to the next and previous promo, and closes on the one last shown", async () => {
+    const user = userEvent.setup();
+    const back = mockBack();
+    show();
+    await user.click(card(1));
+    let panel = await detail();
+    expect(
+      (within(panel).getByRole("button", { name: "Previous promo" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    await user.click(within(panel).getByRole("button", { name: "Next promo" }));
+    panel = await detail();
+    const heading = within(panel).getByRole("heading", { name: "Promo 2" });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+    await user.click(within(panel).getByRole("button", { name: "Next promo" }));
+    await user.click(within(await detail()).getByRole("button", { name: "Previous promo" }));
+    expect(within(await detail()).getByRole("heading", { name: "Promo 2" })).toBeTruthy();
+    // jsdom does not turn Escape into a dialog cancel; the browser tests cover Escape.
+    await user.click(within(await detail()).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(document.activeElement).toBe(card(2));
+    back.mockRestore();
+  });
+
+  it("puts what happens, the cut, the hook, and the ending before the scoring", async () => {
+    const user = userEvent.setup();
+    show();
+    await user.click(card(1));
+    const text = (await detail()).textContent ?? "";
+    const order = ["What happens", "The cut", "The hook", "The ending", "In the script"].map(
+      (label) => text.indexOf(label),
+    );
+    expect(order.every((position) => position >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(text.indexOf("Score and full assessment")).toBeGreaterThan(order[4] as number);
+    expect(text).toContain("He finds her hiding on deck");
+    // Scoring and provenance stay closed until asked for.
+    const summaries = within(await detail()).getAllByText(
+      /Score and full assessment|How this clip was found and ranked/,
+    );
+    for (const summary of summaries) {
+      expect((summary.closest("details") as HTMLDetailsElement).open).toBe(false);
+    }
   });
 
   it("shows evidence, clarity, ratings, warnings, and each lowered rating's reason", async () => {
     const user = userEvent.setup();
     show();
     await user.click(card(4));
-    const panel = screen.getByRole("complementary", { name: "Promo details" });
+    const panel = await detail();
     const text = panel.textContent ?? "";
     expect(text).toContain("Check before posting");
     expect(text).toContain("The hook");
@@ -203,7 +259,9 @@ describe("the detail view", () => {
     const user = userEvent.setup();
     show();
     await user.click(card(2));
-    const table = screen.getByRole("table", { name: "Segments in the order they play" });
+    const table = within(await detail()).getByRole("table", {
+      name: "Segments in the order they play",
+    });
     const rows = within(table).getAllByRole("row");
     expect(rows[1]?.textContent).toBe("1100:49.5001:02.4012.9 s");
     expect(rows[2]?.textContent).toBe("2300:49.4001:01.0011.6 s");
@@ -214,11 +272,12 @@ describe("the detail view", () => {
     const service = fakeService([job("completed")]);
     const getEpisode = vi.spyOn(service, "getEpisode");
     show({ service });
-    await screen.findByRole("slider");
     await user.click(card(4));
-    await user.click(card(5));
-    await user.click(card(4));
-    await waitFor(() => expect(screen.getAllByRole("slider").length).toBeGreaterThan(0));
+    await within(await detail()).findByRole("slider");
+    await user.click(within(await detail()).getByRole("button", { name: "Next promo" }));
+    await within(await detail()).findByRole("slider");
+    await user.click(within(await detail()).getByRole("button", { name: "Previous promo" }));
+    await within(await detail()).findByRole("slider");
     const episodeTwo = getEpisode.mock.calls.filter(([, episode]) => episode === 2);
     expect(episodeTwo).toHaveLength(1);
   });
@@ -236,7 +295,8 @@ describe("the detail view", () => {
             : Promise.reject(new ServiceError("network", "Lost.", true)),
       },
     });
-    const panel = screen.getByRole("complementary", { name: "Promo details" });
+    await user.click(card(1));
+    const panel = await detail();
     expect((await within(panel).findByRole("alert")).textContent).toContain(
       "The script could not be loaded",
     );
@@ -247,6 +307,7 @@ describe("the detail view", () => {
   });
 
   it("warns when a cited line does not match the script", async () => {
+    const user = userEvent.setup();
     const results = buildDemoResults("complete");
     const [first, ...rest] = results.ranking.shortlist;
     const firstEvidence = first?.hook.evidence[0];
@@ -268,7 +329,8 @@ describe("the detail view", () => {
       },
     };
     show({ results: tampered });
-    expect((await screen.findByRole("note")).textContent).toContain(
+    await user.click(card(1));
+    expect((await within(await detail()).findByRole("note")).textContent).toContain(
       "One cited line does not match the script",
     );
   });
@@ -276,8 +338,8 @@ describe("the detail view", () => {
   it("explains an unevaluated moment and still shows its script", async () => {
     const user = userEvent.setup();
     show();
-    await user.click(screen.getByRole("button", { name: /Inspect unevaluated moment/ }));
-    const panel = screen.getByRole("complementary", { name: "Promo details" });
+    await user.click(screen.getByRole("button", { name: /for unevaluated moment/ }));
+    const panel = await detail();
     expect(within(panel).getByRole("heading", { name: "Not evaluated" })).toBeTruthy();
     expect(panel.textContent).toContain("That is not a rejection");
     expect(panel.textContent).not.toContain("Editorial score");
@@ -287,7 +349,8 @@ describe("the detail view", () => {
   it("compares two promos side by side on request", async () => {
     const user = userEvent.setup();
     show();
-    const panel = screen.getByRole("complementary", { name: "Promo details" });
+    await user.click(card(1));
+    const panel = await detail();
     await user.click(within(panel).getByText("Compare with another promo"));
     await user.selectOptions(
       within(panel).getByLabelText("Compare with"),
@@ -315,6 +378,17 @@ describe("export", () => {
     expect(await screen.findByText("Saved promolens-demo-night-ferry-promos.csv.")).toBeTruthy();
     expect(click).toHaveBeenCalled();
     click.mockRestore();
+  });
+
+  it("offers the full report beside the other downloads", async () => {
+    const user = userEvent.setup();
+    const service = fakeService([job("completed")]);
+    const exportResults = vi
+      .spyOn(service, "exportResults")
+      .mockRejectedValue(new ServiceError("unavailable", "No."));
+    show({ service });
+    await user.click(screen.getByRole("button", { name: "Download full report" }));
+    expect(exportResults).toHaveBeenCalledWith(expect.any(String), "ranking-json");
   });
 
   it("says so when export is not available", async () => {

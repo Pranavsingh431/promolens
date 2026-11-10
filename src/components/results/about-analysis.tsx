@@ -1,22 +1,10 @@
 "use client";
 
-import type { AnalysisResults, AnalysisService } from "@/client/service";
-import { Button } from "@/components/ui/button";
-
-import { useExport } from "./export-controls";
+import type { AnalysisResults } from "@/client/service";
 
 /** Technical details for anyone who wants them, closed by default. */
-export function AboutAnalysis({
-  results,
-  service,
-  jobId,
-}: {
-  results: AnalysisResults;
-  service: AnalysisService;
-  jobId: string;
-}) {
+export function AboutAnalysis({ results }: { results: AnalysisResults }) {
   const { ranking } = results;
-  const { busy, status, download } = useExport(service, jobId);
   const rows: Array<[string, string]> = [
     ["Run", ranking.runId],
     ["Ranking version", `${ranking.versions.ranking} (${ranking.versions.configHash})`],
@@ -31,7 +19,7 @@ export function AboutAnalysis({
     ["Evaluated in detail", String(ranking.counts.assessed ?? 0)],
   ];
   return (
-    <details className="mt-6 rounded-md border border-line px-4 py-3 text-sm">
+    <details className="text-sm">
       <summary className="cursor-pointer font-medium">About this analysis</summary>
       <dl className="mt-3 grid gap-x-4 gap-y-1.5 sm:grid-cols-[auto_minmax(0,1fr)]">
         {rows.map(([label, value]) => (
@@ -50,18 +38,6 @@ export function AboutAnalysis({
           ))}
         </ul>
       ) : null}
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <Button
-          variant="secondary"
-          disabled={busy !== null}
-          onClick={() => void download("ranking-json")}
-        >
-          Download full report (JSON)
-        </Button>
-        <p role="status" className={status?.failed ? "text-danger" : "text-ink-muted"}>
-          {status?.message ?? ""}
-        </p>
-      </div>
     </details>
   );
 }

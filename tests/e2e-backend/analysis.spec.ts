@@ -31,7 +31,7 @@ async function signIn(page: Page, who = EDITOR) {
 
 async function analyze(page: Page, name: string, buffer: Buffer) {
   await page.locator('input[type="file"]').setInputFiles(zipFile(name, buffer));
-  await page.getByRole("button", { name: "Analyze screenplays" }).click();
+  await page.getByRole("button", { name: "Find promos" }).click();
 }
 
 const RESULTS = { name: "Ranked promos" };
@@ -58,10 +58,11 @@ test("upload, analyze, follow progress, inspect, and export a show never seen be
   await analyze(page, "salt-archive.zip", buildUnseenShowZip());
 
   // Real stages appear as the server reports them.
-  await expect(page.getByRole("heading", { name: "Analyzing salt-archive.zip" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Finding promos" })).toBeVisible();
+  await expect(page.getByText("salt-archive.zip")).toBeVisible();
   await expect(page.getByText(/5 episodes read/)).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText(/\d+ moments found/)).toBeVisible();
-  await expect(page.locator('[aria-current="step"]')).toHaveText(/Evaluate moments/);
+  await expect(page.locator('[aria-current="step"]')).toContainText("Evaluating clips");
 
   // The analysis belongs to the server: a refresh mid-run returns to the same progress.
   await expect(page).toHaveURL(/\?job=[0-9a-f-]{36}$/);
@@ -75,17 +76,19 @@ test("upload, analyze, follow progress, inspect, and export a show never seen be
   expect((await modelStats(page)).weakerRouting).toBe(0);
 
   // Inspect: the source events come from the uploaded screenplay, with its own timecodes.
-  await page.getByRole("button", { name: /Inspect recommendation 1:/ }).click();
-  const detail = page.getByRole("complementary", { name: "Promo details" });
+  await page.getByRole("button", { name: "View clip details for promo 1" }).click();
+  const detail = page.getByRole("dialog", { name: "Promo details" });
   await expect(detail.getByRole("heading", { name: "Promo 1" })).toBeVisible();
   const lines = detail.getByRole("list", { name: "Script lines behind the hook" });
   await expect(lines.getByRole("button").first()).toBeVisible();
   await expect(detail.getByRole("slider").first()).toBeVisible();
+  await detail.getByRole("button", { name: "Close" }).click();
+  await expect(detail).toHaveCount(0);
 
   // Export: the real files, checked against what the server stored and the source text.
   const [csv] = await Promise.all([
     page.waitForEvent("download"),
-    page.getByRole("button", { name: "Download CSV" }).first().click(),
+    page.getByRole("button", { name: "Download CSV" }).click(),
   ]);
   expect(csv.suggestedFilename()).toMatch(/promolens-.*-promos\.csv$/);
   const csvText = await readFile((await csv.path()) as string, "utf8");

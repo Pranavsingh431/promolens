@@ -49,22 +49,22 @@ export function RecentAnalyses({
 
   if (!items?.length && !message) return null;
   return (
-    <section className="mt-10 border-t border-line pt-6" aria-labelledby="recent-heading">
+    <section className="mt-14" aria-labelledby="recent-heading">
       <h2 id="recent-heading" className="font-semibold">
         Earlier analyses
       </h2>
-      <ul className="mt-3 divide-y divide-line">
+      <ul className="mt-3 divide-y divide-line border-y border-line">
         {items?.map(({ job, showId, createdAt }) => (
-          <li key={job.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3 text-sm">
+          <li key={job.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
             <div className="min-w-0 flex-1 basis-48">
               <p className="font-medium [overflow-wrap:anywhere]">{job.fileName}</p>
-              <p className="text-xs text-ink-muted">
+              <p className="text-sm text-ink-muted">
                 {STATE_LABEL[job.state] ?? "In progress"} ·{" "}
                 {new Date(createdAt).toLocaleDateString()}
               </p>
             </div>
             {confirming === showId ? (
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3 text-sm">
                 <span className="text-danger">Delete this show and its results for good?</span>
                 <Button variant="secondary" onClick={() => void remove(showId)}>
                   Delete
@@ -74,7 +74,7 @@ export function RecentAnalyses({
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <Button variant="secondary" onClick={() => onOpen(job.id)}>
                   Open
                 </Button>

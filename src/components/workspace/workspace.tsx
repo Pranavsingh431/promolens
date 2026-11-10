@@ -35,9 +35,11 @@ type WorkspaceProps = {
   whenVisible?: (signal: AbortSignal) => Promise<void>;
   /** Offered when a session has ended, so the editor can get back in. */
   onSignInAgain?: () => void;
+  /** A reassuring line under the progress steps, such as that the run survives closing the page. */
+  progressNote?: ReactNode;
 };
 
-const NARROW = "mx-auto max-w-2xl px-4 pt-12 pb-16 sm:px-6 sm:pt-16";
+const NARROW = "mx-auto max-w-2xl px-4 pt-12 pb-16 sm:px-6 sm:pt-20";
 
 export function Workspace({
   service,
@@ -49,6 +51,7 @@ export function Workspace({
   renderIdle,
   whenVisible,
   onSignInAgain,
+  progressNote,
 }: WorkspaceProps) {
   const { session, start, open, cancel, retry, restart, reset } = useAnalysis(service, {
     initialJobId,
@@ -81,7 +84,7 @@ export function Workspace({
 
   if (session.phase === "results") {
     return (
-      <main id="main" className="mx-auto max-w-workspace px-4 pt-6 pb-16 sm:px-6 sm:pt-8">
+      <main id="main" className="mx-auto max-w-3xl px-4 pt-10 pb-16 sm:px-6 sm:pt-14">
         <ResultsView
           service={service}
           job={session.job}
@@ -98,25 +101,29 @@ export function Workspace({
     const job = session.phase === "running" ? session.job : null;
     return (
       <main id="main" className={NARROW}>
+        <p className="text-sm text-ink-muted [overflow-wrap:anywhere]">
+          {session.phase === "running" ? session.job.fileName : session.fileName}
+        </p>
         <h1
           ref={heading}
           tabIndex={-1}
-          className="font-display text-4xl [overflow-wrap:anywhere] focus:outline-none"
+          className="mt-1 font-display text-4xl focus:outline-none sm:text-5xl"
         >
-          Analyzing {session.phase === "running" ? session.job.fileName : session.fileName}
+          Finding promos
         </h1>
-        <p role="status" className="mt-2 text-ink-muted">
+        <p role="status" className="mt-3 text-lg text-ink-muted">
           {statusLine(job)}
         </p>
-        <div className="mt-8">
+        <div className="mt-10">
           <AnalysisProgress
             job={job}
             upload={session.phase === "submitting" ? session.upload : null}
           />
         </div>
+        {progressNote ? <p className="mt-10 text-sm text-ink-muted">{progressNote}</p> : null}
         {session.phase === "running" && session.job.canCancel ? (
-          <div className="mt-8">
-            <Button variant="secondary" onClick={() => void cancel()} disabled={session.cancelling}>
+          <div className="mt-6">
+            <Button variant="quiet" onClick={() => void cancel()} disabled={session.cancelling}>
               {session.cancelling ? "Stopping" : "Cancel analysis"}
             </Button>
           </div>
@@ -149,9 +156,6 @@ export function Workspace({
         >
           {job.fileName}
         </h1>
-        <div className="mt-6">
-          <AnalysisProgress job={job} upload={null} />
-        </div>
         <div className="mt-8">
           {copy ? (
             <ErrorState
@@ -174,6 +178,9 @@ export function Workspace({
               You cancelled this analysis, so there are no results to show.
             </Notice>
           )}
+        </div>
+        <div className="mt-10">
+          <AnalysisProgress job={job} upload={null} />
         </div>
       </main>
     );
@@ -210,12 +217,16 @@ export function Workspace({
 
   return (
     <main id="main" className={NARROW}>
-      <h1 ref={heading} tabIndex={-1} className="font-display text-display focus:outline-none">
-        Find the moments that make people stop scrolling.
+      <h1
+        ref={heading}
+        tabIndex={-1}
+        className="font-display text-5xl leading-[1.05] focus:outline-none sm:text-6xl"
+      >
+        Find promos in your screenplays
       </h1>
       <p className="mt-4 text-lg text-ink-muted">
-        Add a show&apos;s timestamped screenplays and get 20 to 60-second promos with exact start
-        and end times. You decide what goes out.
+        Upload a ZIP of a show&apos;s timestamped episode screenplays. PromoLens suggests 20 to
+        60-second promos with exact timecodes, and you decide which to use.
       </p>
       {session.phase === "unavailable" ? (
         <div className="mt-8">
@@ -230,10 +241,10 @@ export function Workspace({
         onAnalyze={start}
         {...(sampleFile ? { sampleFile } : {})}
       />
-      {note && session.phase !== "unavailable" ? (
-        <div className="mt-8 text-sm text-ink-muted">{note}</div>
-      ) : null}
       {renderIdle?.(open)}
+      {note && session.phase !== "unavailable" ? (
+        <div className="mt-12 text-sm text-ink-muted">{note}</div>
+      ) : null}
     </main>
   );
 }

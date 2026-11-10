@@ -89,7 +89,7 @@ test("the page loads nothing from other sites", async ({ page }) => {
   });
   await page.goto("/demo?pace=fast");
   await page.getByRole("button", { name: "Use the sample show" }).click();
-  await page.getByRole("button", { name: "Analyze screenplays" }).click();
+  await page.getByRole("button", { name: "Find promos" }).click();
   await expect(page.getByRole("heading", { name: "Ranked promos" })).toBeVisible();
   expect(external).toEqual([]);
 });

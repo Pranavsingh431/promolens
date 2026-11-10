@@ -106,22 +106,26 @@ labelled on screen and uses a made-up show.
 
 ## The workspace
 
-The app has one screen that moves through upload, progress, results, and
-inspection.
+The app follows one path: upload a screenplay ZIP, find promos, review them.
+It shows what you need at each step and keeps the detail one click away.
 
-- **Upload.** Drag in a ZIP or choose one, up to 25 MB. Nothing is sent until
-  you press Analyze.
-- **Progress.** Named stages, taken from what the job reports. No invented
-  percentages.
-- **Results.** Ranked promos with exact timestamps, hook, ending, reason,
-  editorial score, warnings, and status: recommended, alternative, needs
-  review, or could not be evaluated.
-- **Inspect.** A side panel on wide screens and a full-screen view on small
-  ones: the evidence behind each claim, the new-viewer check, and a screenplay
-  timeline with scenes, the clip's range, and cut warnings. Promos with several
-  segments get one timeline each.
-- **Export.** CSV for spreadsheets, and JSON in the same format the ranking
-  command writes.
+- **Upload.** Drop a ZIP or choose one, up to 25 MB, then press Find promos.
+  Nothing is sent before that.
+- **Progress.** Four plain steps (reading episodes, finding promising moments,
+  evaluating clips, ranking the best promos), each tied to a real job stage,
+  with counts as the job reports them. No invented percentages.
+- **Results.** One ranked list. Each promo shows its episode, exact timecodes,
+  length, why it works, the hook, what it ends on, and anything to check before
+  posting. The editorial score sits quietly at the bottom of each card.
+  Alternatives and moments that could not be evaluated are listed below.
+- **Promo detail.** Opens on request, as a side panel on wide screens and a
+  full-screen view on phones, with Previous and Next. It reads top to bottom:
+  what happens, the cut, the hook and the ending with the script lines behind
+  them, then a screenplay timeline with scenes, the clip's range, and cut
+  warnings. The full assessment, a side-by-side comparison, and how the clip was
+  found stay closed until opened.
+- **Export.** Download links at the top of the results: CSV for spreadsheets,
+  JSON in the same format the ranking command writes, and the full report.
 
 `/demo` runs this workflow on a made-up show. Its menu switches between a
 finished, partly finished, empty, and failed analysis. The demo never reads the

@@ -17,7 +17,7 @@ async function expectAccessible(page: Page) {
 async function runDemo(page: Page, scenario: string) {
   await page.goto(`/demo?scenario=${scenario}&pace=fast`);
   await page.getByRole("button", { name: "Use the sample show" }).click();
-  await page.getByRole("button", { name: "Analyze screenplays" }).click();
+  await page.getByRole("button", { name: "Find promos" }).click();
 }
 
 for (const colorScheme of ["light", "dark"] as const) {
@@ -47,7 +47,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         mimeType: "application/zip",
         buffer: Buffer.from("pk"),
       });
-      await page.getByRole("button", { name: "Analyze screenplays" }).click();
+      await page.getByRole("button", { name: "Find promos" }).click();
       await expect(page.getByText("Analysis is not connected yet")).toBeVisible();
       await expectAccessible(page);
     });
@@ -55,16 +55,27 @@ for (const colorScheme of ["light", "dark"] as const) {
     test("analysis in progress", async ({ page }) => {
       await page.goto("/demo?scenario=complete");
       await page.getByRole("button", { name: "Use the sample show" }).click();
-      await page.getByRole("button", { name: "Analyze screenplays" }).click();
+      await page.getByRole("button", { name: "Find promos" }).click();
       await expect(page.locator('[aria-current="step"]')).toBeVisible();
       await expectAccessible(page);
     });
 
     test("ranked results with the detail open", async ({ page }) => {
       await runDemo(page, "complete");
-      await page.getByRole("button", { name: /Inspect recommendation 5:/ }).click();
+      await page.getByRole("button", { name: "View clip details for promo 5" }).click();
       await expect(page.getByRole("heading", { name: "Promo 5" })).toBeVisible();
       await expect(page.getByRole("slider").first()).toBeVisible();
+      await expectAccessible(page);
+    });
+
+    test("ranked results with the full assessment open", async ({ page }) => {
+      await runDemo(page, "complete");
+      await page.getByRole("button", { name: "View clip details for promo 4" }).click();
+      const panel = page.getByRole("dialog", { name: "Promo details" });
+      await panel.getByText("Score and full assessment").click();
+      await panel.getByText("Compare with another promo").click();
+      await panel.getByText("How this clip was found and ranked").click();
+      await expect(panel.getByText("Would a new viewer follow it?")).toBeVisible();
       await expectAccessible(page);
     });
 

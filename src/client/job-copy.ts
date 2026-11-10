@@ -2,26 +2,38 @@ import type { JobFailureCode, JobStage } from "@/domain/analysis-job";
 
 import type { ServiceError, ServiceErrorKind } from "./service";
 
-/** The stages in the order they run, in words an editor would use. */
+/** The stages in the order they run, with the sentence shown while each one runs. */
 export const STAGE_COPY: ReadonlyArray<{ id: JobStage; label: string; description: string }> = [
-  { id: "uploading", label: "Upload", description: "Sending your screenplay file." },
-  { id: "validating", label: "Check the file", description: "Making sure the ZIP can be read." },
+  { id: "uploading", label: "Upload", description: "Uploading your file." },
+  { id: "validating", label: "Check the file", description: "Checking that the ZIP can be read." },
   { id: "parsing", label: "Read episodes", description: "Reading every episode and its timing." },
   {
     id: "discovering",
     label: "Find moments",
-    description: "Finding promising moments across your episodes.",
+    description: "Looking for promising moments in every episode.",
   },
   {
     id: "evaluating",
-    label: "Evaluate moments",
-    description: "Checking each moment's opening, ending, and clarity for a new viewer.",
+    label: "Evaluate clips",
+    description:
+      "Checking each clip's opening, its ending, and whether a new viewer can follow it.",
   },
   {
     id: "ranking",
     label: "Rank promos",
-    description: "Comparing the strongest moments and choosing which to post first.",
+    description: "Comparing the strongest clips to choose which to post first.",
   },
+];
+
+/**
+ * The steps the progress screen lists. Each covers one or more real server
+ * stages, in order. The upload happens before them and has its own bar.
+ */
+export const PROGRESS_STEPS: ReadonlyArray<{ label: string; stages: readonly JobStage[] }> = [
+  { label: "Reading episodes", stages: ["validating", "parsing"] },
+  { label: "Finding promising moments", stages: ["discovering"] },
+  { label: "Evaluating clips", stages: ["evaluating"] },
+  { label: "Ranking the best promos", stages: ["ranking"] },
 ];
 
 export const FAILURE_COPY: Record<JobFailureCode, { title: string; message: string }> = {

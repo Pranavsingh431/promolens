@@ -2,11 +2,21 @@ import { memo } from "react";
 
 import { formatSeconds, joinClasses } from "@/client/format";
 import type { PromoRow } from "@/client/results-model";
-import { TIER_LABEL } from "@/client/wording";
-import { StatusPill } from "@/components/ui/status-pill";
+import type { Note } from "@/client/wording";
 
-/** At most this many warnings on a card. The rest wait in the detail view. */
-const CARD_WARNINGS = 2;
+/** At most this many items on a card. The rest wait in the detail view. */
+const CARD_NOTES = 3;
+
+/** Things an editor should act on before posting: review flags first, then serious warnings. */
+export function attentionNotes(row: PromoRow): Note[] {
+  return [...row.review, ...row.warnings.filter((w) => w.severity !== "minor")];
+}
+
+export function describeWhere(row: PromoRow): string {
+  return row.promo.segments
+    .map((s, index) => `${index > 0 ? "then " : ""}Episode ${s.episode} · ${s.start} to ${s.end}`)
+    .join(", ");
+}
 
 type PromoCardProps = {
   row: PromoRow;
@@ -16,109 +26,81 @@ type PromoCardProps = {
   buttonRef?: (element: HTMLButtonElement | null) => void;
 };
 
+/**
+ * One recommendation, readable at a glance: where it is, what it opens and
+ * ends on, and why it works. Scores and full assessments wait in the detail.
+ */
 function PromoCardBase({ row, selected, onOpen, buttonRef }: PromoCardProps) {
-  const { promo, status, displayRank, review, warnings, repeatOf } = row;
-  const shownWarnings = warnings.filter((w) => w.severity !== "minor").slice(0, CARD_WARNINGS);
+  const { promo, status, displayRank, repeatOf } = row;
+  const notes = attentionNotes(row).slice(0, CARD_NOTES);
+  const segments = promo.segments.length;
+  const name = status === "recommended" ? `promo ${displayRank}` : `alternative ${displayRank}`;
 
   return (
     <article
       className={joinClasses(
-        "relative rounded-md border bg-surface p-4 hover:border-line-strong",
-        selected ? "border-accent-ink ring-1 ring-accent-ink" : "border-line",
+        "relative rounded-lg border bg-surface p-5 transition-colors hover:border-line-strong sm:p-6",
+        "has-[button:focus-visible]:outline-2 has-[button:focus-visible]:outline-offset-2 has-[button:focus-visible]:outline-accent-ink",
+        selected ? "border-accent-ink" : "border-line",
       )}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex gap-4 sm:gap-5">
         <span
           aria-hidden="true"
           className={joinClasses(
-            "w-7 shrink-0 font-mono leading-none font-medium",
-            status === "recommended" ? "text-2xl" : "pt-0.5 text-lg text-ink-muted",
+            "w-6 shrink-0 font-semibold leading-none tabular-nums",
+            status === "recommended" ? "text-2xl" : "text-lg text-ink-muted",
           )}
         >
           {displayRank}
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="font-mono text-sm font-medium">
+          <p className="text-sm text-ink-muted tabular-nums">
+            {describeWhere(row)}
+            {segments > 1 ? ` · ${segments} segments` : ""} · {formatSeconds(promo.durationMs)}
+          </p>
+          <h3 className="mt-1.5 text-lg leading-snug font-medium [overflow-wrap:anywhere]">
+            {promo.whyItWorks}
+          </h3>
+
+          <dl className="mt-3 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[4.5rem_minmax(0,1fr)]">
+            <dt className="text-ink-muted">Hook</dt>
+            <dd className="[overflow-wrap:anywhere]">{promo.hook.explanation}</dd>
+            <dt className="mt-1 text-ink-muted sm:mt-0">Ends on</dt>
+            <dd className="[overflow-wrap:anywhere]">{promo.cliffhanger.explanation}</dd>
+          </dl>
+
+          {repeatOf ? (
+            <p className="mt-3 text-sm text-ink-muted">
+              {repeatOf.rank ? `Repeats recommendation ${repeatOf.rank}` : "Repeats another promo"}
+            </p>
+          ) : null}
+          {notes.length ? (
+            <p className="mt-3 text-sm text-accent-ink">
+              <span className="font-semibold">Check before posting:</span>{" "}
+              {notes.map((note) => note.label).join(" · ")}
+            </p>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
             <button
               ref={buttonRef}
               type="button"
               onClick={() => onOpen(row.id)}
               aria-current={selected ? "true" : undefined}
-              className="cursor-pointer text-left after:absolute after:inset-0 after:rounded-md"
+              className="cursor-pointer rounded-sm text-sm font-medium text-accent-ink underline-offset-4 after:absolute after:inset-0 after:rounded-lg hover:underline focus-visible:outline-none"
             >
-              <span className="sr-only">
-                Inspect {status === "recommended" ? "recommendation" : "alternative"} {displayRank}
-                :{" "}
-              </span>
-              {promo.segments.map((segment, index) => (
-                <span key={`${segment.episode}-${segment.startMs}`} className="block">
-                  {index > 0 ? "then " : ""}Episode {segment.episode} · {segment.start} to{" "}
-                  {segment.end}
-                </span>
-              ))}
+              View clip details <span className="sr-only">for {name}</span>
             </button>
-          </h3>
-          <p className="font-mono text-xs text-ink-muted">
-            {promo.segments.length > 1 ? `${promo.segments.length} segments · ` : ""}
-            {formatSeconds(promo.durationMs)}
-          </p>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="font-mono text-lg leading-none font-medium">
-            {promo.editorialScore.toFixed(1)}
-          </p>
-          <p className="mt-1 text-xs text-ink-muted">Editorial score</p>
+            <p className="text-xs text-ink-muted">
+              Editorial score{" "}
+              <span className="font-medium text-ink tabular-nums">
+                {promo.editorialScore.toFixed(1)}
+              </span>
+            </p>
+          </div>
         </div>
       </div>
-
-      <dl className="mt-3 space-y-1.5 text-sm">
-        <div>
-          <dt className="inline font-semibold">Hook. </dt>
-          <dd className="inline text-ink-muted [overflow-wrap:anywhere]">
-            {promo.hook.explanation}
-          </dd>
-        </div>
-        <div>
-          <dt className="inline font-semibold">Ends on. </dt>
-          <dd className="inline text-ink-muted [overflow-wrap:anywhere]">
-            {promo.cliffhanger.explanation}
-          </dd>
-        </div>
-        <div>
-          <dt className="inline font-semibold">Why. </dt>
-          <dd className="inline text-ink-muted [overflow-wrap:anywhere]">{promo.whyItWorks}</dd>
-        </div>
-      </dl>
-
-      <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Status and warnings">
-        <li>
-          <StatusPill tone={status === "recommended" ? "accent" : "neutral"}>
-            {status === "recommended" ? "Recommended" : "Alternative"}
-          </StatusPill>
-        </li>
-        <li>
-          <StatusPill>{TIER_LABEL[promo.tier]}</StatusPill>
-        </li>
-        {repeatOf ? (
-          <li>
-            <StatusPill>
-              {repeatOf.rank ? `Repeats recommendation ${repeatOf.rank}` : "Repeats another promo"}
-            </StatusPill>
-          </li>
-        ) : null}
-        {review.length ? (
-          <li>
-            <StatusPill tone="caution">Needs review: {review[0]?.label}</StatusPill>
-          </li>
-        ) : null}
-        {shownWarnings.map((warning) => (
-          <li key={warning.code}>
-            <StatusPill tone={warning.severity === "important" ? "caution" : "neutral"}>
-              {warning.label}
-            </StatusPill>
-          </li>
-        ))}
-      </ul>
     </article>
   );
 }
