@@ -44,7 +44,7 @@ describe("the durable analysis workflow", () => {
     await run.returnValue;
     expect(await stateOf(jobId)).toBe("completed");
     const { ranking } = await (await resultsOf(cookie, jobId)).json();
-    expect(ranking.versions.ranking).toBe("rank-3");
+    expect(ranking.versions.ranking).toBe("rank-4");
     expect((await readJob(cookie, jobId)).state).toBe("completed");
   });
 

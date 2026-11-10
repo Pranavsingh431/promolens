@@ -1,4 +1,7 @@
 import { episodeSchema, type Episode } from "../domain/screenplay/schema.ts";
+import { estimateAnalysis } from "../domain/estimate.ts";
+import { DEFAULT_PROMOS } from "../domain/ranking/plan.ts";
+import { workProfile } from "./analysis/calibration.ts";
 import { analysisIdentity, pipelineIdentity } from "./analysis/identity.ts";
 import { episodeKey } from "./analysis/pipeline.ts";
 import { ApiError } from "./api-error.ts";
@@ -45,20 +48,43 @@ async function assertRollingBudget(backend: Backend, ownerId: string): Promise<v
   }
 }
 
+/**
+ * Refuses a request whose cheapest likely outcome is already over the job's
+ * spending cap. The cap still stops anything that runs over; this only says so
+ * before any money is spent.
+ */
+function assertWithinJobBudget(backend: Backend, show: ShowRow, requested: number): void {
+  const estimate = estimateAnalysis(workProfile(backend.config, backend.env), {
+    episodes: show.episodeCount,
+    requested,
+  });
+  if (estimate.overBudget === "yes") {
+    throw new ApiError(
+      422,
+      "over-budget",
+      `${requested} promos for this show would cost more than the limit for one analysis. Ask for fewer promos.`,
+    );
+  }
+}
+
 export async function startAnalysis(
   backend: Backend,
   editor: Editor,
   showId: string,
+  requested: number = DEFAULT_PROMOS,
 ): Promise<{ job: JobRow; show: ShowRow; created: boolean }> {
   const { db, env } = backend;
   const show = await findOwnedShow(db, editor.id, showId);
   if (!show) throw new ApiError(404, "not-found", "That was not found.");
 
-  const pipeline = pipelineIdentity(env);
+  const pipeline = pipelineIdentity(env, requested);
   const identityKey = analysisIdentity(editor.id, show.contentSha256, pipeline.hash);
   const existing = await findJobByIdentity(db, editor.id, identityKey);
   // A finished or running analysis is handed back free, whatever the budget says.
-  if (!existing) await assertRollingBudget(backend, editor.id);
+  if (!existing) {
+    assertWithinJobBudget(backend, show, requested);
+    await assertRollingBudget(backend, editor.id);
+  }
 
   const { job, created } = existing
     ? { job: existing, created: false }
@@ -67,6 +93,7 @@ export async function startAnalysis(
         showId: show.id,
         identityKey,
         pipelineVersion: pipeline.version,
+        facts: { requested },
       });
   if (created) return { job: await launch(backend, job), show, created };
 

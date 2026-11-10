@@ -38,13 +38,19 @@ const isUniqueViolation = (error: unknown) => {
  */
 export async function createOrReuseJob(
   db: Database,
-  input: { ownerId: string; showId: string; identityKey: string; pipelineVersion: string },
+  input: {
+    ownerId: string;
+    showId: string;
+    identityKey: string;
+    pipelineVersion: string;
+    facts?: JobFacts;
+  },
 ): Promise<{ job: JobRow; created: boolean }> {
   for (let attempt = 0; attempt < 3; attempt++) {
     const created = await db.transaction(async (tx) => {
       const [row] = await tx
         .insert(analysisJobs)
-        .values({ ...input, facts: {} })
+        .values({ ...input, facts: input.facts ?? {} })
         .onConflictDoNothing()
         .returning();
       if (row) {

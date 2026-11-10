@@ -108,6 +108,8 @@ const SERVICE_ERROR_COPY: Record<ServiceErrorKind, { title: string; message: str
     title: "Too many requests",
     message: "Wait a minute and try again.",
   },
+  // The service says how many promos it was asked for and what to do instead.
+  "over-budget": { title: "That is more than one analysis can pay for", message: null },
 };
 
 export function describeServiceError(error: ServiceError): { title: string; message: string } {

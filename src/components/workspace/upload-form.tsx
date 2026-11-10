@@ -4,14 +4,21 @@ import { useId, useRef, useState, type DragEvent } from "react";
 
 import { formatFileSize, joinClasses } from "@/client/format";
 import { UPLOAD_LIMIT_LABEL, checkUpload } from "@/client/upload-rules";
+import type { WorkProfile } from "@/domain/estimate";
 import { Button, buttonClass } from "@/components/ui/button";
+
+import { PromoCount, type Summarize } from "./promo-count";
 
 type UploadFormProps = {
   file: File | null;
   onFileChange: (file: File | null) => void;
-  onAnalyze: (file: File) => void;
+  onAnalyze: (file: File, count: number) => void;
   /** Demo only: makes a made-up file so the workflow can run without one. */
   sampleFile?: () => File;
+  /** For time and cost estimates. Null when this setup cannot estimate. */
+  estimateProfile?: WorkProfile | null;
+  /** Reads episode count and size for the estimate. The real ZIP reader unless replaced. */
+  summarize?: Summarize;
 };
 
 /**
@@ -19,7 +26,14 @@ type UploadFormProps = {
  * editor presses Find promos. The checks here only save a wasted trip: the
  * server inspects every archive itself.
  */
-export function UploadForm({ file, onFileChange, onAnalyze, sampleFile }: UploadFormProps) {
+export function UploadForm({
+  file,
+  onFileChange,
+  onAnalyze,
+  sampleFile,
+  estimateProfile = null,
+  summarize,
+}: UploadFormProps) {
   const inputId = useId();
   const helpId = useId();
   const errorId = useId();
@@ -132,11 +146,12 @@ export function UploadForm({ file, onFileChange, onAnalyze, sampleFile }: Upload
       ) : null}
 
       {file ? (
-        <div className="mt-6">
-          <Button onClick={() => onAnalyze(file)} className="px-6 py-3 text-base">
-            Find promos
-          </Button>
-        </div>
+        <PromoCount
+          file={file}
+          profile={estimateProfile}
+          summarize={summarize}
+          onFind={(count) => onAnalyze(file, count)}
+        />
       ) : sampleFile ? (
         <p className="mt-4 text-sm text-ink-muted">
           Just exploring?{" "}

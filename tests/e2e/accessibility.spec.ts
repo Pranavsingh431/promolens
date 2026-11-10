@@ -17,7 +17,7 @@ async function expectAccessible(page: Page) {
 async function runDemo(page: Page, scenario: string) {
   await page.goto(`/demo?scenario=${scenario}&pace=fast`);
   await page.getByRole("button", { name: "Use the sample show" }).click();
-  await page.getByRole("button", { name: "Find promos" }).click();
+  await page.getByRole("button", { name: "Find 10 promos" }).click();
 }
 
 for (const colorScheme of ["light", "dark"] as const) {
@@ -40,6 +40,13 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expectAccessible(page);
     });
 
+    test("choosing how many promos", async ({ page }) => {
+      await page.goto("/demo?scenario=complete&pace=fast");
+      await page.getByRole("button", { name: "Use the sample show" }).click();
+      await expect(page.getByText(/Estimated AI cost/)).toBeVisible();
+      await expectAccessible(page);
+    });
+
     test("analysis not connected", async ({ page }) => {
       await page.goto("/");
       await page.locator('input[type="file"]').setInputFiles({
@@ -47,7 +54,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         mimeType: "application/zip",
         buffer: Buffer.from("pk"),
       });
-      await page.getByRole("button", { name: "Find promos" }).click();
+      await page.getByRole("button", { name: "Find 10 promos" }).click();
       await expect(page.getByText("Analysis is not connected yet")).toBeVisible();
       await expectAccessible(page);
     });
@@ -55,7 +62,7 @@ for (const colorScheme of ["light", "dark"] as const) {
     test("analysis in progress", async ({ page }) => {
       await page.goto("/demo?scenario=complete");
       await page.getByRole("button", { name: "Use the sample show" }).click();
-      await page.getByRole("button", { name: "Find promos" }).click();
+      await page.getByRole("button", { name: "Find 10 promos" }).click();
       await expect(page.locator('[aria-current="step"]')).toBeVisible();
       await expectAccessible(page);
     });

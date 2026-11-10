@@ -7,7 +7,13 @@ import type { AnalysisService } from "@/client/service";
 import { LoadingState } from "@/components/ui/loading-state";
 import type { DemoPace, DemoScenario } from "@/demo/scenarios";
 
+import { summarizeZip } from "@/client/zip-summary";
+import type { WorkProfile } from "@/domain/estimate";
+
+import type { Summarize } from "./promo-count";
 import { Workspace } from "./workspace";
+
+const SAMPLE_NAME = "night-ferry-sample.zip";
 
 const SCENARIOS: ReadonlyArray<{ id: DemoScenario; label: string }> = [
   { id: "complete", label: "Finished analysis" },
@@ -17,14 +23,26 @@ const SCENARIOS: ReadonlyArray<{ id: DemoScenario; label: string }> = [
 ];
 
 function sampleFile(): File {
-  return new File(["made-up demo file"], "night-ferry-sample.zip", { type: "application/zip" });
+  return new File(["made-up demo file"], SAMPLE_NAME, { type: "application/zip" });
 }
 
 /**
  * The demo route. Everything it shows is made up and comes from src/demo, which
  * only this route loads. It is labelled on screen and never touches a real file.
  */
-export function DemoWorkspace({ scenario, pace }: { scenario: DemoScenario; pace: DemoPace }) {
+/** The sample is not a real ZIP, so its size is given: the made-up show has 3 short episodes. */
+const summarizeSample: Summarize = async (file) =>
+  file.name === SAMPLE_NAME ? { episodes: 3, textKb: 8 } : summarizeZip(file);
+
+export function DemoWorkspace({
+  scenario,
+  pace,
+  estimateProfile = null,
+}: {
+  scenario: DemoScenario;
+  pace: DemoPace;
+  estimateProfile?: WorkProfile | null;
+}) {
   const router = useRouter();
   const example = `${scenario}:${pace}`;
   const [loaded, setLoaded] = useState<{ example: string; service: AnalysisService } | null>(null);
@@ -70,7 +88,13 @@ export function DemoWorkspace({ scenario, pace }: { scenario: DemoScenario; pace
         </div>
       </div>
       {service ? (
-        <Workspace key={example} service={service} sampleFile={sampleFile} />
+        <Workspace
+          key={example}
+          service={service}
+          sampleFile={sampleFile}
+          estimateProfile={estimateProfile}
+          summarize={summarizeSample}
+        />
       ) : (
         <main id="main" className="mx-auto max-w-2xl px-4 sm:px-6">
           <LoadingState label="Loading the demo" />

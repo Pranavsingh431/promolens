@@ -193,6 +193,14 @@ describe("progress from the real service", () => {
     ).toBe("40 comparisons made");
   });
 
+  it("shows planned totals once the server knows them", () => {
+    const at = (done: number, total: number, unit: "screened" | "moments" | "comparisons") =>
+      progressLine(job("evaluating", { facts: { progress: { done, total, unit } } }));
+    expect(at(120, 250, "screened")).toBe("120 of 250 clips given a quick read");
+    expect(at(37, 85, "moments")).toBe("37 of 85 planned detailed evaluations");
+    expect(at(40, 96, "comparisons")).toBe("40 of 96 comparisons");
+  });
+
   it("never shows a percentage", () => {
     const { container } = render(
       <AnalysisProgress

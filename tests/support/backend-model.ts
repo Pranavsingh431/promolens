@@ -43,3 +43,31 @@ export const answerEveryStage: ChatHandler = (body) => {
   if (name === "pairwise_judgment") return chatReply(fakePair());
   return chatReply(proposals(user));
 };
+
+const hashOf = (text: string) => [...text].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) >>> 0, 7);
+
+/**
+ * Judgments that differ per clip, as real ones do: about one clip in five fails
+ * an essential gate (the supplied pack: 23 of 118), and descriptions differ, so
+ * the diversity step sees distinct clips.
+ */
+export const answerVaried: ChatHandler = (body) => {
+  const user = body.messages[1]?.content ?? "";
+  const name = (body.response_format as { json_schema?: { name?: string } } | undefined)
+    ?.json_schema?.name;
+  const h = hashOf(user);
+  if (name === "editorial_judgment") {
+    const base = fakeEditorial(user);
+    const rating = h % 5 === 0 ? 1 : 2 + (h % 3);
+    return chatReply({
+      ...base,
+      hook: { ...base.hook, rating, opening: `Opening ${h % 9973} turns.` },
+      cliffhanger: { ...base.cliffhanger, rating: 2 + ((h >> 3) % 3), ending: `Ends ${h % 7919}.` },
+    });
+  }
+  if (name === "cold_viewer") {
+    const base = fakeCold(user);
+    return chatReply({ ...base, happening: { ...base.happening, text: `Event ${h % 6007}.` } });
+  }
+  return answerEveryStage(body);
+};

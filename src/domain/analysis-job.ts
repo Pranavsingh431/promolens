@@ -38,6 +38,8 @@ export const analysisJobSchema = z.object({
   fileName: z.string().min(1),
   state: z.enum(JOB_STATES),
   facts: z.object({
+    /** How many promos the editor asked for. Absent on analyses from before rank-4 (10). */
+    requested: z.number().int().positive().optional(),
     episodes: z.number().int().nonnegative().optional(),
     moments: z.number().int().nonnegative().optional(),
     /** Real progress within the current stage. `total` is absent when it is not known yet. */
@@ -45,9 +47,17 @@ export const analysisJobSchema = z.object({
       .object({
         done: z.number().int().nonnegative(),
         total: z.number().int().positive().optional(),
-        unit: z.enum(["episodes", "moments", "comparisons"]),
+        unit: z.enum(["episodes", "screened", "moments", "comparisons"]),
       })
       .optional(),
+    /** Estimated time left, recomputed from the work actually remaining. */
+    remainingMs: z.object({ low: z.number(), high: z.number() }).optional(),
+    /** True while the run is pausing because the model provider failed, before trying again. */
+    waiting: z.boolean().optional(),
+    /** Set when the analysis finishes. */
+    returned: z.number().int().nonnegative().optional(),
+    elapsedMs: z.number().int().nonnegative().optional(),
+    costUsd: z.object({ billed: z.number().nullable(), estimated: z.number() }).optional(),
   }),
   /** Set only when state is "failed". */
   failure: z

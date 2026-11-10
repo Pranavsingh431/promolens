@@ -12,6 +12,9 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { Notice } from "@/components/ui/notice";
 
 import { AnalysisProgress, statusLine } from "./analysis-progress";
+import { describeDuration, type WorkProfile } from "@/domain/estimate";
+
+import type { Summarize } from "./promo-count";
 import { UploadForm } from "./upload-form";
 
 // Loaded only once there are results, so the upload screen stays light.
@@ -37,6 +40,9 @@ type WorkspaceProps = {
   onSignInAgain?: () => void;
   /** A reassuring line under the progress steps, such as that the run survives closing the page. */
   progressNote?: ReactNode;
+  /** Time and cost estimates before and during a run. Null when this setup cannot estimate. */
+  estimateProfile?: WorkProfile | null;
+  summarize?: Summarize;
 };
 
 const NARROW = "mx-auto max-w-2xl px-4 pt-12 pb-16 sm:px-6 sm:pt-20";
@@ -52,8 +58,10 @@ export function Workspace({
   whenVisible,
   onSignInAgain,
   progressNote,
+  estimateProfile = null,
+  summarize,
 }: WorkspaceProps) {
-  const { session, start, open, cancel, retry, restart, reset } = useAnalysis(service, {
+  const { session, start, open, cancel, retry, restart, reset, more } = useAnalysis(service, {
     initialJobId,
     ...(whenVisible ? { whenVisible } : {}),
   });
@@ -92,6 +100,7 @@ export function Workspace({
           headingRef={heading}
           onStartOver={startOver}
           onRetry={service.retryJob && session.job.state === "partial" ? restart : undefined}
+          onRequestMore={service.requestMore ? more : undefined}
         />
       </main>
     );
@@ -114,6 +123,16 @@ export function Workspace({
         <p role="status" className="mt-3 text-lg text-ink-muted">
           {statusLine(job)}
         </p>
+        {job?.facts.waiting ? (
+          <p className="mt-2 text-sm font-medium text-accent-ink">
+            Waiting for the AI service to respond. The analysis will try again shortly.
+          </p>
+        ) : job?.facts.remainingMs ? (
+          <p className="mt-2 text-sm text-ink-muted">
+            Time left: {describeDuration(job.facts.remainingMs)} (an estimate that updates as work
+            finishes).
+          </p>
+        ) : null}
         <div className="mt-10">
           <AnalysisProgress
             job={job}
@@ -239,6 +258,8 @@ export function Workspace({
         file={file}
         onFileChange={setFile}
         onAnalyze={start}
+        estimateProfile={estimateProfile}
+        {...(summarize ? { summarize } : {})}
         {...(sampleFile ? { sampleFile } : {})}
       />
       {renderIdle?.(open)}

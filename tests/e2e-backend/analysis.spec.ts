@@ -31,7 +31,7 @@ async function signIn(page: Page, who = EDITOR) {
 
 async function analyze(page: Page, name: string, buffer: Buffer) {
   await page.locator('input[type="file"]').setInputFiles(zipFile(name, buffer));
-  await page.getByRole("button", { name: "Find promos" }).click();
+  await page.getByRole("button", { name: "Find 10 promos" }).click();
 }
 
 const RESULTS = { name: "Ranked promos" };

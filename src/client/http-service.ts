@@ -33,6 +33,7 @@ const episodeResponseSchema = z.object({ episode: episodeSchema });
 function kindForStatus(status: number, code: string): { kind: ServiceErrorKind; retry: boolean } {
   if (status === 401) return { kind: "unauthorized", retry: false };
   if (status === 404 || status === 410) return { kind: "not-found", retry: false };
+  if (code === "over-budget") return { kind: "over-budget", retry: false };
   if (status === 413 || status === 415 || status === 422) {
     return { kind: "invalid-file", retry: false };
   }
@@ -86,7 +87,7 @@ export function createHttpService(): AnalysisService {
     });
 
   const service: AnalysisService = {
-    async startAnalysis(file, { signal, onUploadProgress }) {
+    async startAnalysis(file, { signal, onUploadProgress, count }) {
       const ticket = checked(
         ticketSchema,
         await (
@@ -122,9 +123,22 @@ export function createHttpService(): AnalysisService {
       );
       const { job } = checked(
         jobResponseSchema,
-        await (await post("/api/analyses", { showId: completed.showId }, signal)).json(),
+        await (
+          await post(
+            "/api/analyses",
+            { showId: completed.showId, ...(count ? { count } : {}) },
+            signal,
+          )
+        ).json(),
       );
       return job;
+    },
+
+    async requestMore(jobId, count) {
+      return checked(
+        jobResponseSchema,
+        await (await post(`/api/analyses/${jobId}/more`, { count })).json(),
+      ).job;
     },
 
     async getJob(jobId, options) {

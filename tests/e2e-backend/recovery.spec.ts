@@ -123,7 +123,7 @@ test("a server killed mid-analysis finishes the job after restart", async () => 
     const results = await send(`/api/analyses/${job.id}/results`);
     expect(results.status).toBe(200);
     const { ranking } = await results.json();
-    expect(ranking.versions.ranking).toBe("rank-3");
+    expect(ranking.versions.ranking).toBe("rank-4");
   } finally {
     await control("mode", { mode: "healthy" });
     await stop(server).catch(() => {});

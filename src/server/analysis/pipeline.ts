@@ -12,7 +12,8 @@ import {
   type Candidate,
   type CandidateSet,
 } from "../../domain/evaluation/candidate.ts";
-import { DEFAULT_RANKING_CONFIG } from "../../domain/ranking/config.ts";
+import { DEFAULT_PROMOS, planRankingConfig } from "../../domain/ranking/plan.ts";
+import { estimateAnalysis, workTime, type Work } from "../../domain/estimate.ts";
 import { promoExportSchema, rankingOutputSchema } from "../../domain/ranking/output.ts";
 import { buildRankingPool, POOL_CONFIG } from "../../domain/ranking/pool.ts";
 import { showSchema, type Show } from "../../domain/screenplay/schema.ts";
@@ -41,7 +42,8 @@ import {
 } from "../jobs.ts";
 import { logEvent } from "../log.ts";
 import { createStageCall } from "../ranking/live.ts";
-import { runRanking, type RankingRun, type StageStats } from "../ranking/run.ts";
+import { runRanking, type RankingPlan, type RankingRun, type StageStats } from "../ranking/run.ts";
+import { workProfile } from "./calibration.ts";
 import { jobPrefix, showPrefix, type ObjectStore } from "../storage.ts";
 import { databaseDiscoveryCache, databaseStageCache } from "./cache-stores.ts";
 import { discoveryConfigs, rankingModels } from "./identity.ts";
@@ -253,6 +255,44 @@ async function routingFor(deps: PipelineDeps, models: readonly string[]) {
   return routings;
 }
 
+const requestedOf = (job: JobRow) => job.facts.requested ?? DEFAULT_PROMOS;
+
+/**
+ * Time left, from the work that actually remains: what is planned (or, before
+ * planning, the estimate's range) minus what is done. Undefined without measurements.
+ */
+function remainingMs(
+  deps: PipelineDeps,
+  job: JobRow,
+  left: { low: Work; high: Work },
+): JobFacts["remainingMs"] {
+  const profile = workProfile(deps.config, deps.env);
+  const low = workTime(profile, left.low, "low");
+  const high = workTime(profile, left.high, "high");
+  return low === null || high === null ? undefined : { low, high };
+}
+
+function plannedLeft(
+  deps: PipelineDeps,
+  job: JobRow,
+  done: Partial<Work>,
+  plan: RankingPlan | null = null,
+  candidates?: number,
+): JobFacts["remainingMs"] {
+  const estimate = estimateAnalysis(workProfile(deps.config, deps.env), {
+    episodes: job.facts.episodes ?? 1,
+    requested: requestedOf(job),
+    ...(candidates !== undefined ? { candidates } : {}),
+  });
+  const minus = (work: Work): Work => ({
+    discovery: Math.max(0, work.discovery - (done.discovery ?? 0)),
+    screen: Math.max(0, (plan?.screen ?? work.screen) - (done.screen ?? 0)),
+    detailed: Math.max(0, (plan?.detailed ?? work.detailed) - (done.detailed ?? 0)),
+    comparisons: Math.max(0, (plan?.comparisons ?? work.comparisons) - (done.comparisons ?? 0)),
+  });
+  return remainingMs(deps, job, { low: minus(estimate.work.low), high: minus(estimate.work.high) });
+}
+
 /** Validates the source again, parses it, and stores the parsed show for later steps. */
 export async function prepare(
   deps: PipelineDeps,
@@ -294,10 +334,12 @@ export async function prepare(
     ),
   );
   const episodes = parsed.episodes.map((e) => e.number);
+  const parsedFacts: JobFacts = { ...job.facts, episodes: episodes.length };
   await advance(deps, job, "discovering", {
     facts: {
-      episodes: episodes.length,
+      ...parsedFacts,
       progress: { done: 0, total: episodes.length, unit: "episodes" },
+      remainingMs: plannedLeft(deps, { ...job, facts: parsedFacts }, {}),
     },
   });
   logEvent("job.parsed", {
@@ -391,11 +433,13 @@ export async function discoverBatch(
       readsDone + runs.filter((r) => r.status === "succeeded" || r.status === "cached").length;
     await updateFacts(deps.db, jobId, runId, {
       ...job.facts,
+      waiting: undefined,
       progress: {
         done: Math.floor(Math.min(done, total) / CONTEXT_VARIANTS.length),
         total: job.facts.episodes ?? episodes.length,
         unit: "episodes",
       },
+      remainingMs: plannedLeft(deps, job, { discovery: Math.min(done, total) }),
     });
     // Refusals are final. Anything else that failed may work on a later pass.
     return {
@@ -473,7 +517,18 @@ export async function buildPool(
   const artifact: PoolArtifact = { candidates: pool.candidates, stats: pool.stats, gaps };
   await deps.storage.put(poolKey(job), JSON.stringify(artifact), "application/json");
   await advance(deps, job, "evaluating", {
-    facts: { ...job.facts, moments: pool.candidates.length, progress: undefined },
+    facts: {
+      ...job.facts,
+      moments: pool.candidates.length,
+      progress: undefined,
+      remainingMs: plannedLeft(
+        deps,
+        job,
+        { discovery: Number.MAX_SAFE_INTEGER },
+        null,
+        pool.candidates.length,
+      ),
+    },
   });
   return { proceed: true };
 }
@@ -529,7 +584,7 @@ export async function rankSlice(
   if (!poolBytes) throw new Error("Candidate pool is missing.");
   const pool = JSON.parse(new TextDecoder().decode(poolBytes)) as PoolArtifact;
 
-  const config = DEFAULT_RANKING_CONFIG;
+  const config = planRankingConfig(requestedOf(job));
   const models = rankingModels(deps.env);
   const { limits, openRouter } = deps.config;
   const routings = await routingFor(deps, [models.screen.model, models.editorial.model]);
@@ -546,8 +601,31 @@ export async function rankSlice(
   });
 
   const progress = createProgress(deps, job, runId);
+  let screened = 0;
   let assessed = 0;
   let compared = 0;
+  let plan: RankingPlan | null = null;
+  const report = (unit: "screened" | "moments" | "comparisons") => {
+    const done = {
+      discovery: Number.MAX_SAFE_INTEGER,
+      screen: screened,
+      detailed: assessed,
+      comparisons: compared,
+    };
+    const totals = {
+      screened: plan?.screen,
+      moments: plan?.detailed,
+      comparisons: plan?.comparisons,
+    };
+    const value = { screened, moments: assessed, comparisons: compared }[unit];
+    const total = totals[unit] ?? undefined;
+    progress.report({
+      ...job.facts,
+      waiting: undefined,
+      progress: { done: total ? Math.min(value, total) : value, ...(total ? { total } : {}), unit },
+      remainingMs: plannedLeft(deps, job, done, plan, pool.candidates.length),
+    });
+  };
   let current = job;
   let rankingStarted = false;
 
@@ -577,14 +655,18 @@ export async function rankSlice(
         runId: job.id,
         now: () => job.createdAt,
         signal: softStop.signal,
+        onPlan: (next) => {
+          plan = next;
+        },
         onJudgment: (stage, status) => {
           if (status !== "live" && status !== "cached") return;
+          if (stage === "screen") {
+            screened += 1;
+            report("screened");
+          }
           if (stage === "editorial") {
             assessed += 1;
-            progress.report({
-              ...job.facts,
-              progress: { done: assessed, unit: "moments" },
-            });
+            report("moments");
           }
           if (stage === "pairwise") {
             compared += 1;
@@ -594,10 +676,7 @@ export async function rankSlice(
                 current = moved;
               });
             }
-            progress.report({
-              ...job.facts,
-              progress: { done: compared, unit: "comparisons" },
-            });
+            report("comparisons");
           }
         },
       });
@@ -622,7 +701,10 @@ export async function rankSlice(
     const hitLimit = run.stats.some((s) =>
       Object.keys(s.failures).some((kind) => BUDGET_KINDS.has(kind)),
     );
-    if (!hitLimit && failureRounds < MAX_FAILURE_ROUNDS) return { next: "wait" };
+    if (!hitLimit && failureRounds < MAX_FAILURE_ROUNDS) {
+      await updateFacts(deps.db, jobId, runId, { ...job.facts, waiting: true }).catch(() => {});
+      return { next: "wait" };
+    }
 
     if (output.shortlist.length > 0) {
       await finalize(deps, job, run, pool, routings, config.version);
@@ -695,7 +777,18 @@ async function finalize(
   await deps.storage.put(keys.manifestKey, JSON.stringify(manifest), "application/json");
 
   const outcome = output.status === "complete" ? "completed" : "partial";
-  const facts: JobFacts = { episodes: job.facts.episodes, moments: job.facts.moments };
+  const facts: JobFacts = {
+    requested: requestedOf(job),
+    episodes: job.facts.episodes,
+    moments: job.facts.moments,
+    returned: output.shortlist.length,
+    elapsedMs: Math.max(0, Date.now() - (job.startedAt ?? job.createdAt).getTime()),
+    // A zero bill with paid work behind it means the bill is not known, not that it was free.
+    costUsd: {
+      billed: totals.billedUsd > 0 || totals.estimatedUsd === 0 ? totals.billedUsd : null,
+      estimated: totals.estimatedUsd,
+    },
+  };
   await transitionJob(
     deps.db,
     job.id,

@@ -65,7 +65,7 @@ ids cross step boundaries, so no screenplay text enters workflow state.
 | Step       | What it does                                                                         |
 | ---------- | ------------------------------------------------------------------------------------ |
 | Prepare    | Claims the job, verifies the file's checksum, parses it, stores parsed episodes.     |
-| Discover   | Runs the model over batches of 8 episodes, for each of two prompt variants.          |
+| Discover   | Runs the model over batches of 25 episodes, for each of two prompt variants.         |
 | Build pool | Rebuilds candidates from saved answers and makes the same pool the CLI makes.        |
 | Rank       | Runs screening, cold viewer, editorial, pairwise, and diversity in repeated slices.  |
 | Finalize   | Validates the outputs, writes them under the attempt, and flips the job in one move. |
@@ -237,6 +237,7 @@ over 16 KB are refused.
 | `POST /api/uploads/:id/complete`       | Verify the file and record the show.        |
 | `GET /api/analyses`                    | List this editor's analyses.                |
 | `POST /api/analyses`                   | Start an analysis, or reuse the same one.   |
+| `POST /api/analyses/:id/more`          | The same show for a different promo count.  |
 | `GET /api/analyses/:id`                | Status. Supports `If-None-Match`.           |
 | `POST /api/analyses/:id/cancel`        | Cancel.                                     |
 | `POST /api/analyses/:id/retry`         | Run again, reusing saved answers.           |
@@ -259,6 +260,10 @@ sends no requests from a hidden tab, and stops at a final state.
 - `PROMOLENS_JOB_BUDGET_USD` is a hard cap per analysis, across every retry.
 - `PROMOLENS_ROLLING_BUDGET_USD` is a hard cap per editor over 30 days.
 - `PROMOLENS_JOB_MAX_REQUESTS` and `PROMOLENS_MODEL_CONCURRENCY` limit calls.
+- Starting an analysis checks the estimate for the requested promo count. If
+  even its low end is over the job budget, the request is refused with
+  `over-budget` before anything is spent. The running cap still applies to
+  anything an estimate gets wrong.
 - While a step runs, its `job_spend` row holds spent plus reserved money. If the
   step crashes, that upper bound stays counted, so a recovery cannot overspend.
 - Validated answers are cached by content, prompt, schema, and model, scoped to
@@ -268,6 +273,40 @@ sends no requests from a hidden tab, and stops at a final state.
 - Billed and estimated cost are stored separately, and the manifest keeps them.
 
 Redis is not used.
+
+## Promo count, estimates, and speed
+
+An editor asks for 1 to 500 promos (`count` on `POST /api/analyses`, 10 by
+default). The count is stored in the job's facts and is part of the analysis
+identity, so each count is its own analysis. Discovery reads and model
+judgments are cached by what the model saw, not by count, so a new count for the
+same show pays only for the extra work. Ranking for the web app is `rank-4`
+(see [ranking](ranking.md#rank-4-the-requested-number-of-promos)).
+
+Estimates come from `src/domain/estimate.ts`. Per-call latency (median and 95th
+percentile), tokens, and billed share per stage were measured from 919 cached
+judgments and 100 discovery reads (`src/server/analysis/calibration.ts`); cost
+uses the configured models' prices. Candidates per episode and per kilobyte of
+script, the share of evaluated clips that pass, and step overheads are ranges,
+so every estimate is a range. A model with no measurements gets no estimate.
+Checked against the two real runs available: the made-up 4-episode production
+run (172 seconds, $0.0366) and the supplied pack's recorded $0.37 both fall
+inside their estimates.
+
+Two speed settings changed, measured with `tests/perf/workload.perf.ts` (the
+real pipeline in-process, a made-up 50-episode show, mock model latencies drawn
+from the measured distributions):
+
+| 10 promos, same work (648 model calls)        | Model time |
+| --------------------------------------------- | ---------- |
+| Before: concurrency 4, discovery batches of 8 | 17.3 min   |
+| Concurrency 4, discovery batches of 25        | 16.3 min   |
+| After: concurrency 8, discovery batches of 25 | 8.7 min    |
+
+Model time is the mock's scaled waits plus our own code; it shows the shape of
+the change, not a promise for production. A capped live run with the real
+models at concurrency 8 (a made-up 4-episode show, 3 promos) took 93 seconds
+for $0.036 with no rate limiting.
 
 ## Privacy
 

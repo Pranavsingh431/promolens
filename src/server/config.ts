@@ -47,7 +47,8 @@ const limitsSchema = z.object({
   PROMOLENS_JOB_BUDGET_USD: number(1.5),
   PROMOLENS_ROLLING_BUDGET_USD: number(15),
   PROMOLENS_JOB_MAX_REQUESTS: number(6_000),
-  PROMOLENS_MODEL_CONCURRENCY: number(4),
+  // 8 halved model time against 4 in tests/perf/workload.perf.ts; see docs/backend.md.
+  PROMOLENS_MODEL_CONCURRENCY: number(8),
   PROMOLENS_MODEL_TIMEOUT_SECONDS: number(120),
   PROMOLENS_MODEL_ATTEMPTS: number(3),
   PROMOLENS_STEP_BUDGET_SECONDS: number(200),
@@ -91,7 +92,6 @@ export function loadBackendConfig(env: Record<string, string | undefined>): Conf
   if (!limits.success) missing.push("a PROMOLENS_ limit is not a positive number");
 
   if (missing.length || !storage || !limits.success) return { ok: false, missing };
-  const l = limits.data;
   return {
     ok: true,
     config: {
@@ -99,16 +99,28 @@ export function loadBackendConfig(env: Record<string, string | undefined>): Conf
       storage,
       editors,
       openRouter: { apiKey, baseUrl: env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1" },
-      limits: {
-        jobBudgetUsd: l.PROMOLENS_JOB_BUDGET_USD,
-        rollingBudgetUsd: l.PROMOLENS_ROLLING_BUDGET_USD,
-        jobMaxRequests: Math.floor(l.PROMOLENS_JOB_MAX_REQUESTS),
-        modelConcurrency: Math.floor(l.PROMOLENS_MODEL_CONCURRENCY),
-        modelTimeoutMs: l.PROMOLENS_MODEL_TIMEOUT_SECONDS * 1000,
-        modelAttempts: Math.floor(l.PROMOLENS_MODEL_ATTEMPTS),
-        stepBudgetMs: l.PROMOLENS_STEP_BUDGET_SECONDS * 1000,
-        retentionDays: Math.floor(l.PROMOLENS_RETENTION_DAYS),
-      },
+      limits: toLimits(limits.data),
     },
   };
+}
+
+function toLimits(l: z.infer<typeof limitsSchema>): BackendConfig["limits"] {
+  return {
+    jobBudgetUsd: l.PROMOLENS_JOB_BUDGET_USD,
+    rollingBudgetUsd: l.PROMOLENS_ROLLING_BUDGET_USD,
+    jobMaxRequests: Math.floor(l.PROMOLENS_JOB_MAX_REQUESTS),
+    modelConcurrency: Math.floor(l.PROMOLENS_MODEL_CONCURRENCY),
+    modelTimeoutMs: l.PROMOLENS_MODEL_TIMEOUT_SECONDS * 1000,
+    modelAttempts: Math.floor(l.PROMOLENS_MODEL_ATTEMPTS),
+    stepBudgetMs: l.PROMOLENS_STEP_BUDGET_SECONDS * 1000,
+    retentionDays: Math.floor(l.PROMOLENS_RETENTION_DAYS),
+  };
+}
+
+/** The limits alone, from the environment or the defaults. Null when a value is invalid. */
+export function readLimits(
+  env: Record<string, string | undefined>,
+): BackendConfig["limits"] | null {
+  const parsed = limitsSchema.safeParse(env);
+  return parsed.success ? toLimits(parsed.data) : null;
 }

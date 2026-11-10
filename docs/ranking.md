@@ -338,6 +338,40 @@ judgment cache, so it is not sent again on every re-run; `--retry-refused`
 sends it again on purpose. A provider's content filter may catch some of the
 most intense moments, so these clips deserve a direct look.
 
+## rank-4: the requested number of promos
+
+The web app ranks with `rank-4` (`src/domain/ranking/plan.ts`), which sizes the
+work to the number of promos the editor asks for. At 10 promos every setting is
+rank-3's. rank-3 itself is unchanged and is still what the `rank` command uses,
+so the accepted outputs stay reproducible.
+
+- The quick screen still reads every candidate, for every count.
+- Detailed evaluation starts with 8 clips per requested promo by screening
+  priority (at least 24, and 80 for 10 or more), plus the per-type floors and a
+  15% random exploration sample. The every-episode floor applies from 10 promos.
+- If fewer distinct clips pass the gates than were asked for, evaluation goes on
+  in batches, in screening order, sized by the pass rate so far, until enough
+  pass or no candidates are left. It never adds a clip that failed a gate.
+- Head-to-head comparison is bounded: the requested number plus 6 finalists,
+  between 8 and 32, each pair judged in both orders as in rank-3. Promos below
+  the finalists are ordered by their individual scores, and the results say so.
+- Corrections scale with the count: the top 3 per promo are considered and at
+  most 1.2 per promo are judged again.
+
+Measured on a made-up 50-episode show with mock judgments (250 candidates):
+
+| Promos asked for | Model calls | Evaluated in detail | Comparisons | Returned |
+| ---------------- | ----------- | ------------------- | ----------- | -------- |
+| 1                | 454         | 28                  | 48          | 1        |
+| 5                | 508         | 46                  | 66          | 5        |
+| 10               | 648         | 101                 | 96          | 10       |
+| 20               | 708         | 101                 | 156         | 20       |
+| 50               | 776         | 117                 | 192         | 50       |
+| 100 or 300       | 1,042       | 250 (all)           | 192         | 99       |
+
+Asking that show for 50 after 10 made 142 new calls instead of 776. These are
+counts from mock judgments; how many clips pass on a real show differs.
+
 ## Cost, cache, and reliability
 
 - **Experiment budget.** A ledger in `private/ranking/ledger.json` adds up

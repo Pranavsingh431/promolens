@@ -151,7 +151,9 @@ describe("a show nobody has seen before", () => {
     expect(rankingOutputSchema.safeParse(ranking).success).toBe(true);
     expect(promoExportSchema.safeParse(promos).success).toBe(true);
     expect(ranking.status).toBe("complete");
-    expect(ranking.versions.ranking).toBe("rank-3");
+    // rank-4 plans by the requested count; at the default of 10 its settings are rank-3's.
+    expect(ranking.versions.ranking).toBe("rank-4");
+    expect(ranking.counts.requested).toBe(10);
     expect(ranking.versions.models.screen).toBe("anthropic/claude-haiku-5.5");
     expect(ranking.versions.models.editorial).toBe("openai/gpt-6-luna");
     expect(ranking.shortlist.length).toBeGreaterThan(0);
@@ -613,16 +615,29 @@ describe("what changes the identity of an analysis", () => {
 });
 
 describe("spending limits", () => {
+  /**
+   * Tightens the limits only while the analysis runs. The estimate checked at
+   * start sees the normal limits, so this is a run that costs more than its
+   * estimate: the case the running guard exists for.
+   */
   const withBudget = async (
     limits: Partial<Harness["config"]["limits"]>,
     fn: () => Promise<void>,
   ) => {
     const original = { ...h.deps.config.limits };
-    Object.assign(h.deps.config.limits, limits);
+    const start = h.onStart;
+    h.onStart = async (jobId) => {
+      Object.assign(h.deps.config.limits, limits);
+      try {
+        await h.runAnalysis(jobId);
+      } finally {
+        Object.assign(h.deps.config.limits, original);
+      }
+    };
     try {
       await fn();
     } finally {
-      Object.assign(h.deps.config.limits, original);
+      h.onStart = start;
     }
   };
 
@@ -666,9 +681,23 @@ describe("spending limits", () => {
     });
   });
 
+  /** Applies limits at once, for checks made when a request arrives. */
+  const withLimitsNow = async (
+    limits: Partial<Harness["config"]["limits"]>,
+    fn: () => Promise<void>,
+  ) => {
+    const original = { ...h.deps.config.limits };
+    Object.assign(h.deps.config.limits, limits);
+    try {
+      await fn();
+    } finally {
+      Object.assign(h.deps.config.limits, original);
+    }
+  };
+
   it("refuses new work past the rolling limit, but still hands back finished work", async () => {
     const { jobId, showId } = await analyzeNew(2);
-    await withBudget({ rollingBudgetUsd: 0.000001 }, async () => {
+    await withLimitsNow({ rollingBudgetUsd: 0.000001 }, async () => {
       const fresh = await uploadShow(cookie, newZip(2));
       const refused = await call(routes.postAnalyses, "/x", {
         method: "POST",

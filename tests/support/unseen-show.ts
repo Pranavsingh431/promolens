@@ -31,10 +31,30 @@ const clock = (seconds: number) => {
   return `${String(minutes).padStart(2, "0")}:${rest.toFixed(2).padStart(5, "0")}`;
 };
 
-function event(index: number, seed: number, start: number): string {
+/** A made-up word, the same for the same seed, so varied shows stay reproducible. */
+function word(seed: number): string {
+  const syllables = ["ka", "ro", "mi", "tel", "su", "van", "dor", "pe", "lis", "qua", "zen", "bo"];
+  let n = (seed * 2_654_435_761) >>> 0;
+  let out = "";
+  for (let i = 0; i < 3; i++) {
+    out += syllables[n % syllables.length];
+    n = Math.floor(n / syllables.length) + 7;
+  }
+  return out;
+}
+
+/** A line nobody else in the show says, for shows whose scenes must not look alike. */
+const uniqueLine = (seed: number, index: number) =>
+  `The ${word(seed * 97 + index)} took the ${word(seed * 89 + index * 3)} to the ${word(seed * 83 + index * 5)}.`;
+
+function event(index: number, seed: number, start: number, varied = false): string {
   const end = start + 3.5;
   const time = `Start: (${clock(start)}) | End: (${clock(end)})`;
   const pick = <T>(items: readonly T[]) => items[(seed + index) % items.length] as T;
+  if (varied && index % 4 !== 2) {
+    const speaker = index % 4 === 1 ? `**${pick(CAST)} (Low):**` : "**ACTION:**";
+    return `${speaker}\n${time}\n${uniqueLine(seed, index)}`;
+  }
   switch (index % 4) {
     case 0:
       return `**ACTION:**\n${time}\n${pick(ACTIONS)}`;
@@ -50,12 +70,12 @@ function event(index: number, seed: number, start: number): string {
 /** A small number from the show's name, so two shows differ in what they say. */
 const saltOf = (name: string) => [...name].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) % 9973, 7);
 
-function episodeText(number: number, showName: string): string {
+function episodeText(number: number, showName: string, varied = false): string {
   const salt = saltOf(showName);
   const scenes = [0, 1, 2].map((sceneIndex) => {
     const from = sceneIndex * 44;
     const events = Array.from({ length: 11 }, (_, i) =>
-      event(i, salt + number * 10 + sceneIndex, from + i * 4),
+      event(i, salt + number * 10 + sceneIndex, from + i * 4, varied),
     );
     return [
       `SCENE ${String(sceneIndex + 1).padStart(2, "0")}`,
@@ -82,13 +102,21 @@ function episodeText(number: number, showName: string): string {
   ].join("\n");
 }
 
-export function unseenShowEntries(episodes = 5, showName = "the-salt-archive") {
+export function unseenShowEntries(episodes = 5, showName = "the-salt-archive", varied = false) {
   return Array.from({ length: episodes }, (_, i) => ({
     name: `${showName}/episode-${String(i + 1).padStart(2, "0")}.txt`,
-    data: episodeText(i + 1, showName),
+    data: episodeText(i + 1, showName, varied),
   }));
 }
 
-export function buildUnseenShowZip(episodes = 5, showName = "the-salt-archive"): Buffer {
-  return buildZip(unseenShowEntries(episodes, showName));
+/**
+ * `varied` gives every scene its own lines, so clips do not read as the same
+ * story beat. Benchmarks of the diversity step need that; most tests do not.
+ */
+export function buildUnseenShowZip(
+  episodes = 5,
+  showName = "the-salt-archive",
+  varied = false,
+): Buffer {
+  return buildZip(unseenShowEntries(episodes, showName, varied));
 }

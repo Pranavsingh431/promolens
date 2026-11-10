@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
 import type { AnalysisService } from "@/client/service";
+import type { WorkProfile } from "@/domain/estimate";
 import { unavailableService } from "@/client/unavailable-service";
 import { Button, buttonClass } from "@/components/ui/button";
 
@@ -38,6 +39,7 @@ function lazyHttpService(): AnalysisService {
     getEpisode: async (id, n, options) => (await service()).getEpisode(id, n, options),
     exportResults: async (id, format) => (await service()).exportResults(id, format),
     retryJob: async (id) => (await (await service()).retryJob?.(id)) as never,
+    requestMore: async (id, count) => (await (await service()).requestMore?.(id, count)) as never,
     listJobs: async (options) => (await (await service()).listJobs?.(options)) ?? [],
     deleteShow: async (id) => (await service()).deleteShow?.(id),
   };
@@ -46,7 +48,15 @@ function lazyHttpService(): AnalysisService {
 const whenVisible = async (signal: AbortSignal) =>
   (await loadService()).whenDocumentVisible(signal);
 
-function ConnectedWorkspace({ name, initialJobId }: { name: string; initialJobId?: string }) {
+function ConnectedWorkspace({
+  name,
+  initialJobId,
+  estimateProfile,
+}: {
+  name: string;
+  initialJobId?: string;
+  estimateProfile: WorkProfile | null;
+}) {
   const [service] = useState(lazyHttpService);
   const router = useRouter();
   const onJobChange = useCallback((jobId: string | null) => {
@@ -64,6 +74,7 @@ function ConnectedWorkspace({ name, initialJobId }: { name: string; initialJobId
       service={service}
       onJobChange={onJobChange}
       whenVisible={whenVisible}
+      estimateProfile={estimateProfile}
       onSignInAgain={() => router.refresh()}
       {...(initialJobId ? { initialJobId } : {})}
       progressNote="This can take a few minutes. You can close this page: the analysis keeps running, and it will be waiting under Earlier analyses."
@@ -84,13 +95,21 @@ function ConnectedWorkspace({ name, initialJobId }: { name: string; initialJobId
 export function LiveWorkspace({
   access,
   initialJobId,
+  estimateProfile = null,
 }: {
   access: LiveAccess;
   initialJobId?: string;
+  estimateProfile?: WorkProfile | null;
 }) {
   if (access.kind === "signed-out") return <SignIn />;
   if (access.kind === "editor") {
-    return <ConnectedWorkspace name={access.name} {...(initialJobId ? { initialJobId } : {})} />;
+    return (
+      <ConnectedWorkspace
+        name={access.name}
+        estimateProfile={estimateProfile}
+        {...(initialJobId ? { initialJobId } : {})}
+      />
+    );
   }
   return (
     <Workspace

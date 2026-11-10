@@ -140,15 +140,18 @@ export async function createHarness(options: { limits?: Limits; storage?: Object
   let stepNumber = 0;
   /** The same ordering the durable workflow uses, run in this process. */
   const runAnalysis = (jobId: string, runId: string = randomUUID()) =>
-    orchestrate({
-      prepare: () => prepare(deps, jobId, runId),
-      discover: (variant, episodes, reads) =>
-        discoverBatch(deps, jobId, runId, `d${++stepNumber}:1`, variant, episodes, reads),
-      buildPool: () => buildPool(deps, jobId, runId),
-      rank: (_slice, rounds) => rankSlice(deps, jobId, runId, `r${++stepNumber}:1`, rounds),
-      fail: () => failUnexpected(deps, jobId, runId),
-      pause: async () => {},
-    });
+    orchestrate(
+      {
+        prepare: () => prepare(deps, jobId, runId),
+        discover: (variant, episodes, reads) =>
+          discoverBatch(deps, jobId, runId, `d${++stepNumber}:1`, variant, episodes, reads),
+        buildPool: () => buildPool(deps, jobId, runId),
+        rank: (_slice, rounds) => rankSlice(deps, jobId, runId, `r${++stepNumber}:1`, rounds),
+        fail: () => failUnexpected(deps, jobId, runId),
+        pause: async () => {},
+      },
+      harness.discoveryBatch ? { discoveryBatch: harness.discoveryBatch } : {},
+    );
 
   const started: string[] = [];
   const backend: Backend = {
@@ -173,6 +176,8 @@ export async function createHarness(options: { limits?: Limits; storage?: Object
     mock,
     started,
     runAnalysis,
+    /** Episodes per discovery step; the pipeline default when unset. */
+    discoveryBatch: undefined as number | undefined,
     onStart: (jobId: string): Promise<void> => runAnalysis(jobId),
     close: async () => {
       setBackendForTests(null);

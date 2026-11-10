@@ -21,7 +21,7 @@ async function analyze(service: AnalysisService) {
   const user = userEvent.setup();
   render(<Workspace service={service} />);
   await user.upload(screen.getByLabelText(/Drop your screenplay ZIP/), zipFile("show.zip"));
-  await user.click(screen.getByRole("button", { name: "Find promos" }));
+  await user.click(screen.getByRole("button", { name: "Find 10 promos" }));
   return user;
 }
 

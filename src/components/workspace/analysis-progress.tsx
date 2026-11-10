@@ -72,8 +72,15 @@ export function progressLine(job: AnalysisJob | null): string | null {
   if (!progress) return null;
   const { done, total, unit } = progress;
   if (unit === "episodes") return `${done} of ${total ?? "?"} episodes searched`;
-  if (unit === "moments") return `${done} moments evaluated`;
-  return `${done} comparisons made`;
+  if (unit === "screened") {
+    return total
+      ? `${done} of ${total} clips given a quick read`
+      : `${done} clips given a quick read`;
+  }
+  if (unit === "moments") {
+    return total ? `${done} of ${total} planned detailed evaluations` : `${done} moments evaluated`;
+  }
+  return total ? `${done} of ${total} comparisons` : `${done} comparisons made`;
 }
 
 function stepState(index: number, active: number, job: AnalysisJob | null): StepState {

@@ -109,15 +109,22 @@ labelled on screen and uses a made-up show.
 The app follows one path: upload a screenplay ZIP, find promos, review them.
 It shows what you need at each step and keeps the detail one click away.
 
-- **Upload.** Drop a ZIP or choose one, up to 25 MB, then press Find promos.
-  Nothing is sent before that.
+- **Upload.** Drop a ZIP or choose one, up to 25 MB. Choose how many promos you
+  want (1 to 500, 10 by default). The screen shows the number of episodes, an
+  estimated time, and an estimated AI cost for that number, then the button
+  says, for example, Find 20 promos. Nothing is sent before you press it.
 - **Progress.** Four plain steps (reading episodes, finding promising moments,
   evaluating clips, ranking the best promos), each tied to a real job stage,
-  with counts as the job reports them. No invented percentages.
-- **Results.** One ranked list. Each promo shows its episode, exact timecodes,
+  with counts as the job reports them, such as 37 of 85 planned detailed
+  evaluations, and an estimate of the time left. No invented percentages.
+- **Results.** One ranked list, with how many promos were asked for and how many
+  passed every quality check. You get only clips that pass, so it can be fewer
+  than you asked for, and the page says so. Each promo shows its episode, exact timecodes,
   length, why it works, the hook, what it ends on, and anything to check before
   posting. The editorial score sits quietly at the bottom of each card.
-  Alternatives and moments that could not be evaluated are listed below.
+  Alternatives and moments that could not be evaluated are listed below, with a
+  way to ask the same show for more promos, which reuses everything already
+  checked. About this analysis gives the run's time and billed AI cost.
 - **Promo detail.** Opens on request, as a side panel on wide screens and a
   full-screen view on phones, with Previous and Next. It reads top to bottom:
   what happens, the cut, the hook and the ending with the script lines behind

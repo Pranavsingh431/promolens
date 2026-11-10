@@ -192,6 +192,8 @@ export type RankingInput = {
   cache?: StageCacheStore;
   /** Told as each judgment settles, so a caller can report progress. */
   onJudgment?: (stage: StageName, status: "live" | "cached" | "failed" | "skipped") => void;
+  /** Told how much work is planned, as soon as it is known and whenever it grows. */
+  onPlan?: (plan: RankingPlan) => void;
   /** Null makes a plan: cache lookups only, nothing is sent. */
   call: StageCall | null;
   /** Send requests again even though the provider refused them before. Off by default. */
@@ -292,6 +294,20 @@ function hasObviousKeywords(a: Assessment): boolean {
       CONFLICT_WORDS.test(e.text) ||
       PHYSICAL_ACTION.test(e.text),
   );
+}
+
+/** Planned work, in judgments. Detailed assessments are clips, each needing two judgments. */
+export type RankingPlan = { screen: number; detailed: number; comparisons: number | null };
+
+/** rank-4 keeps assessing in batches until this many distinct clips pass. Absent in rank-3. */
+function progressiveTarget(config: RankingConfig): { want: number; minBatch: number } | null {
+  const planned = config as RankingConfig & {
+    requested?: number;
+    progressive?: { minBatch: number };
+  };
+  return planned.progressive && planned.requested
+    ? { want: planned.requested, minBatch: planned.progressive.minBatch }
+    : null;
 }
 
 export async function runRanking(input: RankingInput): Promise<RankingRun> {
@@ -684,10 +700,56 @@ export async function runRanking(input: RankingInput): Promise<RankingRun> {
   }
 
   const toAssess = [...assessments.values()].filter((a) => a.selection !== null);
+  input.onPlan?.({ screen: passing.length, detailed: toAssess.length, comparisons: null });
   await timed("editorial", models.editorial.model, () => Promise.all(toAssess.map(assess)));
   log(
     `Stages C and D: ${toAssess.filter((a) => assessments.get(a.candidate.id)?.scored).length} of ${toAssess.length} fully assessed.`,
   );
+
+  // rank-4: assess more clips, in screening order, until enough distinct ones pass the gates.
+  // The quick screen already read every clip, so this only decides how deep the detailed reads go.
+  const target = progressiveTarget(config);
+  let topUpRounds = 0;
+  let topUpUnfinished = false;
+  if (target) {
+    const pending = selection.excluded
+      .map((e) => assessments.get(e.candidateId))
+      .filter((a): a is Assessment => a !== undefined);
+    const distinctEligible = () => {
+      const eligibleNow = [...assessments.values()]
+        .filter((a) => a.scored?.gate.pass)
+        .sort(compareScored);
+      const vectors = narrativeVectors(eligibleNow.map((a) => narrativeDocument(a, timeline)));
+      return selectDiverse(
+        eligibleNow.map((a) => diversityItem(a, timeline, vectors.get(a.candidate.id))),
+        { ...config.diversity, top: target.want },
+      ).selected.length;
+    };
+    let cursor = 0;
+    while (cursor < pending.length && !halt.fatal) {
+      const have = distinctEligible();
+      if (have >= target.want) break;
+      if (input.signal?.aborted) {
+        topUpUnfinished = true;
+        break;
+      }
+      const assessedSoFar = [...assessments.values()].filter((a) => a.scored).length;
+      // Expect future clips to pass about as often as the ones assessed so far did.
+      const yieldSoFar = Math.max(0.2, have / Math.max(1, assessedSoFar));
+      const size = Math.min(
+        pending.length - cursor,
+        Math.max(target.minBatch, Math.ceil((target.want - have) / yieldSoFar)),
+      );
+      const batch = pending.slice(cursor, cursor + size);
+      cursor += size;
+      for (const a of batch) a.selection = "priority";
+      toAssess.push(...batch);
+      topUpRounds += 1;
+      input.onPlan?.({ screen: passing.length, detailed: toAssess.length, comparisons: null });
+      await timed("editorial", models.editorial.model, () => Promise.all(batch.map(assess)));
+      log(`Top-up ${topUpRounds}: ${batch.length} more clips assessed.`);
+    }
+  }
 
   // Boundary corrections: checked by code, then judged again from scratch.
   const ranked = () => [...assessments.values()].filter((a) => a.scored).sort(compareScored);
@@ -776,6 +838,11 @@ export async function runRanking(input: RankingInput): Promise<RankingRun> {
     score: a.scored?.score ?? 0,
   }));
   const schedule = schedulePairs(finalistItems, config.pairwise);
+  input.onPlan?.({
+    screen: passing.length,
+    detailed: toAssess.length + derived.length,
+    comparisons: schedule.length,
+  });
   const pairs: RankingRun["pairs"] = [];
   let pairFailures = 0;
   const pairRefusals: Array<{
@@ -904,7 +971,12 @@ export async function runRanking(input: RankingInput): Promise<RankingRun> {
   // A clip whose quick read was refused can still be judged in detail. Only unjudged ones are missing.
   const screenRefusedOnly = screenRefused.filter((a) => !a.scored && a.deepStatus !== "refused");
   // Complete means nothing a re-run could still fill is missing. Refusals are final and listed.
-  const complete = !halt.fatal && deepFailures === 0 && pairFailures === 0 && screenFailures === 0;
+  const complete =
+    !halt.fatal &&
+    !topUpUnfinished &&
+    deepFailures === 0 &&
+    pairFailures === 0 &&
+    screenFailures === 0;
   const notes: string[] = [];
   if (!complete) {
     notes.push(
@@ -918,8 +990,17 @@ export async function runRanking(input: RankingInput): Promise<RankingRun> {
     );
   }
   if (halt.fatal) notes.push(`The run stopped early: ${halt.fatal.kind}.`);
-  if (shortlist.length < config.diversity.top) {
+  if (target && shortlist.length < target.want) {
+    notes.push(
+      `${target.want} promos were requested and ${shortlist.length} distinct clips passed every essential gate and the final checks, so ${shortlist.length} are recommended. No clip below the gates was added to make up the number.`,
+    );
+  } else if (shortlist.length < config.diversity.top) {
     notes.push(`Only ${shortlist.length} clips passed every essential gate and the final checks.`);
+  }
+  if (target && finalists.length < shortlist.length) {
+    notes.push(
+      `The top ${finalists.length} eligible clips were compared head to head. The rest are ordered by their individual scores.`,
+    );
   }
   if (validationFailures.length) {
     notes.push(
@@ -949,7 +1030,7 @@ export async function runRanking(input: RankingInput): Promise<RankingRun> {
     screened: passing.filter((a) => a.screenStatus === "ok").length,
     screenFailed: screenFailures,
     selectedForAssessment: toAssess.length,
-    excludedByScreening: selection.excluded.length,
+    excludedByScreening: passing.filter((a) => a.selection === null).length,
     assessed: [...assessments.values()].filter((a) => a.scored).length,
     assessmentFailed: deepFailures,
     refusedByProvider: refused.length + screenRefusedOnly.length,
@@ -965,6 +1046,7 @@ export async function runRanking(input: RankingInput): Promise<RankingRun> {
     comparisonsJudged: pairs.length,
     shortlist: shortlist.length,
     alternates: diverse.alternates.length,
+    ...(target ? { requested: target.want, topUpRounds } : {}),
   };
 
   const output = rankingOutputSchema.parse({
@@ -1060,7 +1142,11 @@ export async function runRanking(input: RankingInput): Promise<RankingRun> {
   const explored = [...assessments.values()].filter((a) => a.selection === "exploration");
   const momentTypes: ScreeningAudit["momentTypes"] = {};
   for (const type of MOMENT_TYPES) momentTypes[type] = { pool: 0, selected: 0, excluded: 0 };
-  const excludedIds = new Set(selection.excluded.map((e) => e.candidateId));
+  const excludedIds = new Set(
+    selection.excluded
+      .map((e) => e.candidateId)
+      .filter((id) => assessments.get(id)?.selection === null),
+  );
   for (const a of passing) {
     const type = a.screen?.momentType;
     if (!type) continue;
@@ -1074,7 +1160,7 @@ export async function runRanking(input: RankingInput): Promise<RankingRun> {
   const audit: ScreeningAudit = {
     passing: passing.length,
     selected: selectedCounts,
-    excluded: selection.excluded.length,
+    excluded: excludedIds.size,
     momentTypes,
     keywordShare: {
       selected: share(passing.filter((a) => !excludedIds.has(a.candidate.id))),

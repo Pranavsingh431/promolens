@@ -20,7 +20,7 @@ beforeEach(() => {
 async function runSample() {
   const user = userEvent.setup();
   await user.click(await screen.findByRole("button", { name: "Use the sample show" }));
-  await user.click(screen.getByRole("button", { name: "Find promos" }));
+  await user.click(screen.getByRole("button", { name: "Find 10 promos" }));
 }
 
 describe("the demo", () => {

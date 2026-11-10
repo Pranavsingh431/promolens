@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { fakeService, job } from "../../../tests/support/analysis-service";
 import { ServiceError, type AnalysisResults, type AnalysisService } from "@/client/service";
+import type { AnalysisJob } from "@/domain/analysis-job";
 import { buildDemoResults } from "@/demo/results";
 import type { DemoScenario } from "@/demo/scenarios";
 
@@ -26,6 +27,8 @@ function show(
     wide?: boolean;
     service?: AnalysisService;
     onStartOver?: () => void;
+    facts?: AnalysisJob["facts"];
+    onRequestMore?: (count: number) => void;
   } = {},
 ) {
   setWidth(options.wide ?? true);
@@ -34,7 +37,8 @@ function show(
   return render(
     <ResultsView
       service={service}
-      job={job("completed", { fileName: "night-ferry.zip" })}
+      job={job("completed", { fileName: "night-ferry.zip", facts: options.facts ?? {} })}
+      onRequestMore={options.onRequestMore}
       results={results}
       headingRef={createRef()}
       onStartOver={options.onStartOver ?? (() => {})}
@@ -359,6 +363,52 @@ describe("the detail view", () => {
     const table = within(panel).getByRole("table", { name: "Ratings for the two promos" });
     expect(table.textContent).toContain("93.8");
     expect(table.textContent).toContain("76.3");
+  });
+});
+
+describe("the number of promos", () => {
+  it("shows how many were asked for and returned, and says plainly when fewer passed", () => {
+    show({ facts: { requested: 8 } });
+    expect(screen.getByText(/5 of 8 requested, best first/)).toBeTruthy();
+    expect(screen.getByRole("note").textContent).toContain("You asked for 8. 5 distinct clips");
+    expect(screen.getByRole("note").textContent).toContain("Nothing below the checks was added");
+  });
+
+  it("marks where head-to-head comparison ends and score order begins", () => {
+    const results = buildDemoResults("complete");
+    const shortlist = results.ranking.shortlist.map((promo, i) =>
+      i < 3 ? promo : { ...promo, ranking: { ...promo.ranking, pairwise: null } },
+    );
+    show({ results: { ...results, ranking: { ...results.ranking, shortlist } } });
+    const divider = screen.getByText(/From here on they are ordered by their individual scores/);
+    const items = [...document.querySelectorAll("ol > li")];
+    expect(items.findIndex((li) => li.contains(divider))).toBe(3);
+  });
+
+  it("offers more promos from the same show only when the request was met", async () => {
+    const user = userEvent.setup();
+    const onRequestMore = vi.fn();
+    show({ facts: { requested: 5 }, onRequestMore });
+    await user.click(screen.getByRole("button", { name: "Find 10 promos" }));
+    expect(onRequestMore).toHaveBeenCalledWith(10);
+    cleanup();
+    show({ facts: { requested: 8 }, onRequestMore });
+    expect(screen.queryByText("Need more promos?")).toBeNull();
+  });
+
+  it("keeps the run's time and cost in the details, not on the list", () => {
+    show({
+      facts: {
+        requested: 5,
+        elapsedMs: 172_000,
+        costUsd: { billed: 0.0366, estimated: 0.0392 },
+      },
+    });
+    const about = screen.getByText("About this analysis").closest("details") as HTMLDetailsElement;
+    expect(about.open).toBe(false);
+    expect(about.textContent).toContain("2.9 minutes");
+    expect(about.textContent).toContain("$0.0366 billed");
+    expect(about.textContent).toContain("Promos requested5");
   });
 });
 

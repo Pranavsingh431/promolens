@@ -45,6 +45,7 @@ export function createDemoService(options: {
   let position = 0;
   let cancelled = false;
   let fileName = "night-ferry-sample.zip";
+  let requested: number | undefined;
   let results: AnalysisResults | null = null;
 
   function current(): AnalysisJob {
@@ -53,7 +54,7 @@ export function createDemoService(options: {
       id: JOB_ID,
       fileName,
       state,
-      facts: FACTS[state] ?? {},
+      facts: { ...(FACTS[state] ?? {}), ...(requested ? { requested } : {}) },
       failure:
         state === "failed" ? { code: "no-episodes", stage: "parsing", retryable: true } : null,
       canCancel: FULL.includes(state),
@@ -64,8 +65,9 @@ export function createDemoService(options: {
   const loadResults = () => (results ??= buildDemoResults(options.scenario));
 
   return {
-    async startAnalysis(file) {
+    async startAnalysis(file, { count } = {}) {
       fileName = file.name;
+      requested = count;
       position = 0;
       cancelled = false;
       return current();

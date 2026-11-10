@@ -24,7 +24,11 @@ export interface AnalysisService {
   /** Sends the file only when called. Nothing is uploaded before the editor presses Analyze. */
   startAnalysis(
     file: File,
-    options: RequestOptions & { onUploadProgress?: (progress: UploadProgress) => void },
+    options: RequestOptions & {
+      onUploadProgress?: (progress: UploadProgress) => void;
+      /** How many promos the editor asked for. The server's default when absent. */
+      count?: number;
+    },
   ): Promise<AnalysisJob>;
   getJob(jobId: string, options?: RequestOptions): Promise<AnalysisJob>;
   cancelJob(jobId: string): Promise<AnalysisJob>;
@@ -34,6 +38,8 @@ export interface AnalysisService {
   exportResults(jobId: string, format: ExportFormat): Promise<ExportFile>;
   /** Runs a stopped analysis again, reusing every answer already paid for. */
   retryJob?(jobId: string): Promise<AnalysisJob>;
+  /** Asks the same show for a different number of promos, reusing every answer already paid for. */
+  requestMore?(jobId: string, count: number): Promise<AnalysisJob>;
   listJobs?(options?: RequestOptions): Promise<JobSummary[]>;
   /** Removes a show and everything made from it. */
   deleteShow?(showId: string): Promise<void>;
@@ -47,7 +53,8 @@ export type ServiceErrorKind =
   | "server"
   | "invalid-response"
   | "unauthorized"
-  | "rate-limited";
+  | "rate-limited"
+  | "over-budget";
 
 export class ServiceError extends Error {
   readonly kind: ServiceErrorKind;

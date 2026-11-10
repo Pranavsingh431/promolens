@@ -19,7 +19,8 @@ export type AnalysisOps = {
   pause: (duration: "30s" | "2m") => Promise<void>;
 };
 
-export const DISCOVERY_BATCH = 8;
+/** Episodes per discovery step. Fewer, larger steps wait less on each step's slowest read. */
+export const DISCOVERY_BATCH = 25;
 /** Extra passes over episodes that failed for a reason a later try could fix. */
 export const DISCOVERY_RETRY_PASSES = 2;
 /** Far above any real show. A runaway loop stops here rather than spending forever. */
@@ -32,7 +33,11 @@ function batches<T>(items: readonly T[], size: number): T[][] {
   return out;
 }
 
-export async function orchestrate(ops: AnalysisOps): Promise<void> {
+export async function orchestrate(
+  ops: AnalysisOps,
+  options: { discoveryBatch?: number } = {},
+): Promise<void> {
+  const batchSize = options.discoveryBatch ?? DISCOVERY_BATCH;
   try {
     const prepared = await ops.prepare();
     if (!prepared.proceed) return;
@@ -40,7 +45,7 @@ export async function orchestrate(ops: AnalysisOps): Promise<void> {
     let reads = 0;
     let retry = new Map<string, number[]>();
     for (const variant of prepared.variants) {
-      for (const batch of batches(prepared.episodes, DISCOVERY_BATCH)) {
+      for (const batch of batches(prepared.episodes, batchSize)) {
         const result = await ops.discover(variant, batch, reads);
         if (!result.proceed) return;
         reads += batch.length - result.failedEpisodes.length;
@@ -53,7 +58,7 @@ export async function orchestrate(ops: AnalysisOps): Promise<void> {
       await ops.pause("30s");
       const next = new Map<string, number[]>();
       for (const [variant, episodes] of retry) {
-        for (const batch of batches(episodes, DISCOVERY_BATCH)) {
+        for (const batch of batches(episodes, batchSize)) {
           const result = await ops.discover(variant, batch, reads);
           if (!result.proceed) return;
           reads += batch.length - result.failedEpisodes.length;

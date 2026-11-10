@@ -55,6 +55,7 @@ export function createAnalysisRunner(
   let session: AnalysisSession = { phase: "idle" };
   let controller: AbortController | null = null;
   let file: File | null = null;
+  let count: number | undefined;
   // What "Try again" should do. Updated each time work is about to start.
   let recover: () => void = () => {};
 
@@ -115,14 +116,16 @@ export function createAnalysisRunner(
     else set({ phase: "stopped", job });
   }
 
-  async function start(chosen: File) {
+  async function start(chosen: File, requested?: number) {
     file = chosen;
+    count = requested;
     const signal = begin();
-    recover = () => void start(chosen);
+    recover = () => void start(chosen, requested);
     set({ phase: "submitting", fileName: chosen.name, upload: null });
     try {
       const job = await service.startAnalysis(chosen, {
         signal,
+        ...(requested ? { count: requested } : {}),
         onUploadProgress: (upload) => {
           if (session.phase === "submitting") set({ ...session, upload });
         },
@@ -159,6 +162,24 @@ export function createAnalysisRunner(
     }
   }
 
+  /** The same show again, for a different number of promos. Cached answers are reused. */
+  async function more(job: AnalysisJob, requested: number) {
+    const signal = begin();
+    recover = () => void more(job, requested);
+    set({ phase: "opening" });
+    try {
+      await follow(
+        await (service.requestMore as (id: string, n: number) => Promise<AnalysisJob>)(
+          job.id,
+          requested,
+        ),
+        signal,
+      );
+    } catch (error) {
+      fail(error, job.fileName);
+    }
+  }
+
   async function cancel() {
     if (session.phase !== "running") return;
     const { job } = session;
@@ -172,7 +193,10 @@ export function createAnalysisRunner(
   }
 
   return {
-    start: (chosen: File) => void start(chosen),
+    start: (chosen: File, requested?: number) => void start(chosen, requested),
+    more: (requested: number) => {
+      if (service.requestMore && "job" in session) void more(session.job, requested);
+    },
     open: (jobId: string) => void open(jobId),
     cancel: () => void cancel(),
     retry: () => recover(),
@@ -181,7 +205,7 @@ export function createAnalysisRunner(
         session.phase === "stopped" ||
         (session.phase === "results" && session.job.state === "partial");
       if (canRerun && service.retryJob && "job" in session) void retryStopped(session.job);
-      else if (file) void start(file);
+      else if (file) void start(file, count);
     },
     reset: () => {
       begin();

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { DemoWorkspace } from "@/components/workspace/demo-workspace";
 import { DEMO_SCENARIOS, type DemoPace, type DemoScenario } from "@/demo/scenarios";
+import { demoWorkProfile } from "@/domain/calibration";
 
 export const metadata: Metadata = { title: "Demo" };
 
@@ -13,5 +14,6 @@ export default async function DemoPage({ searchParams }: DemoPageProps) {
     ? (params.scenario as DemoScenario)
     : "complete";
   const pace: DemoPace = params.pace === "fast" ? "fast" : "normal";
-  return <DemoWorkspace scenario={scenario} pace={pace} />;
+  // The demo shows the estimates the real app would show, using the default models and limits.
+  return <DemoWorkspace scenario={scenario} pace={pace} estimateProfile={demoWorkProfile()} />;
 }

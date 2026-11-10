@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 
 import type { AnalysisJob } from "@/domain/analysis-job";
 import { formatRange, formatSeconds } from "@/client/format";
 import { buildResultsModel, type PromoRow, type UnevaluatedRow } from "@/client/results-model";
 import type { AnalysisResults, AnalysisService } from "@/client/service";
 import { createEpisodeCache } from "@/client/use-episodes";
+import { MAX_PROMOS } from "@/domain/ranking/plan";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -24,6 +25,8 @@ type ResultsViewProps = {
   onStartOver: () => void;
   /** Offered only by a service that can rerun an analysis. */
   onRetry?: (() => void) | undefined;
+  /** Asks the same show for more promos. Offered only by a service that can. */
+  onRequestMore?: ((count: number) => void) | undefined;
 };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -39,6 +42,7 @@ export default function ResultsView({
   headingRef,
   onStartOver,
   onRetry,
+  onRequestMore,
 }: ResultsViewProps) {
   const model = useMemo(() => buildResultsModel(results), [results]);
   const cache = useMemo(() => createEpisodeCache(service, job.id), [service, job.id]);
@@ -109,6 +113,7 @@ export default function ResultsView({
   }
 
   const total = model.recommended.length + model.alternatives.length;
+  const requested = job.facts.requested;
   const missingNote = model.unevaluated.length
     ? `${plural(model.unevaluated.length, "moment")} could not be evaluated and ${
         model.unevaluated.length === 1 ? "is" : "are"
@@ -139,6 +144,13 @@ export default function ResultsView({
 
   return (
     <>
+      {total > 0 || model.unevaluated.length > 0 ? (
+        <div className="mb-6">
+          <Button variant="secondary" onClick={onStartOver}>
+            Analyze another file
+          </Button>
+        </div>
+      ) : null}
       <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
         <div className="min-w-0">
           <h1
@@ -150,9 +162,11 @@ export default function ResultsView({
           </h1>
           <p className="mt-2 text-ink-muted [overflow-wrap:anywhere]">
             {job.fileName}
-            {model.recommended.length
-              ? ` · ${plural(model.recommended.length, "pick")}, best first`
-              : ""}
+            {requested
+              ? ` · ${model.recommended.length} of ${requested} requested, best first`
+              : model.recommended.length
+                ? ` · ${plural(model.recommended.length, "pick")}, best first`
+                : ""}
           </p>
         </div>
         {total > 0 ? (
@@ -164,6 +178,14 @@ export default function ResultsView({
         These picks were evaluated by AI and checked against the script. No person has rated them,
         and the editorial score does not predict views.
       </p>
+
+      {requested && model.recommended.length < requested && total > 0 ? (
+        <p role="note" className="mt-4 text-sm">
+          You asked for {requested}. {model.recommended.length} distinct{" "}
+          {model.recommended.length === 1 ? "clip" : "clips"} passed every quality check, so that is
+          what you got. Nothing below the checks was added to make up the number.
+        </p>
+      ) : null}
 
       {model.partial ? (
         <div role="note" className="mt-6 rounded-md border border-accent-ink/60 px-4 py-3 text-sm">
@@ -244,19 +266,64 @@ export default function ResultsView({
               </p>
             ) : null}
 
-            <AboutAnalysis results={results} />
+            {onRequestMore && requested && model.recommended.length >= requested ? (
+              <RequestMore current={requested} onRequest={onRequestMore} />
+            ) : null}
 
-            <div>
-              <Button variant="quiet" onClick={onStartOver}>
-                Analyze another file
-              </Button>
-            </div>
+            <AboutAnalysis results={results} job={job} />
           </div>
         </>
       )}
 
       {detail ? <DetailShell onDismiss={close}>{detail}</DetailShell> : null}
     </>
+  );
+}
+
+/** The same show again, for more promos. Everything already judged is reused. */
+function RequestMore({
+  current,
+  onRequest,
+}: {
+  current: number;
+  onRequest: (count: number) => void;
+}) {
+  const inputId = useId();
+  const [text, setText] = useState(String(Math.min(MAX_PROMOS, current * 2)));
+  const count = Number(text);
+  const valid = Number.isInteger(count) && count > current && count <= MAX_PROMOS;
+  return (
+    <section aria-labelledby={`${inputId}-heading`}>
+      <h2 id={`${inputId}-heading`} className="font-semibold">
+        Need more promos?
+      </h2>
+      <p className="mt-1 text-sm text-ink-muted">
+        This reuses everything already checked, so only the extra work takes time and money.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <label htmlFor={inputId} className="text-sm">
+          Number of promos
+        </label>
+        <input
+          id={inputId}
+          type="number"
+          inputMode="numeric"
+          min={current + 1}
+          max={MAX_PROMOS}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          className="w-24 rounded-sm border border-line-strong bg-surface px-2.5 py-1.5 text-sm tabular-nums"
+        />
+        <Button variant="secondary" disabled={!valid} onClick={() => onRequest(count)}>
+          {valid ? `Find ${count} promos` : "Find more promos"}
+        </Button>
+      </div>
+      {valid ? null : (
+        <p className="mt-1 text-sm text-danger">
+          Choose a whole number from {current + 1} to {MAX_PROMOS}.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -278,8 +345,16 @@ function RecommendedList({
       </h2>
       {rows.length ? (
         <ol className="space-y-4">
-          {rows.map((row) => (
+          {rows.map((row, index) => (
             <li key={row.id}>
+              {index > 0 &&
+              row.promo.ranking.pairwise === null &&
+              rows[index - 1]?.promo.ranking.pairwise !== null ? (
+                <p className="mb-4 border-t border-line pt-4 text-sm text-ink-muted">
+                  The promos above were compared head to head. From here on they are ordered by
+                  their individual scores.
+                </p>
+              ) : null}
               <PromoCard
                 row={row}
                 selected={row.id === activeId}

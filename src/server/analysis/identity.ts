@@ -9,7 +9,7 @@ import { MERGE_CONFIG } from "../../domain/discovery/merge.ts";
 import { PROPOSAL_SCHEMA_VERSION } from "../../domain/discovery/proposal.ts";
 import { RESOLVE_CONFIG } from "../../domain/discovery/resolve.ts";
 import { RUBRIC_VERSION } from "../../domain/evaluation/rubric.ts";
-import { DEFAULT_RANKING_CONFIG } from "../../domain/ranking/config.ts";
+import { DEFAULT_PROMOS, planRankingConfig } from "../../domain/ranking/plan.ts";
 import { POOL_CONFIG } from "../../domain/ranking/pool.ts";
 import { COLD_VIEWER_PROMPT_VERSION } from "../../domain/ranking/prompts/cold-viewer-v1.ts";
 import { EDITORIAL_PROMPT_VERSION } from "../../domain/ranking/prompts/editorial-v1.ts";
@@ -58,8 +58,8 @@ export function discoveryConfigs(env: Env): Record<ContextVariant, DiscoveryConf
   return { "writer-context": config("writer-context"), "screen-only": config("screen-only") };
 }
 
-export function pipelineIdentity(env: Env) {
-  const ranking = DEFAULT_RANKING_CONFIG;
+export function pipelineIdentity(env: Env, requested: number = DEFAULT_PROMOS) {
+  const ranking = planRankingConfig(requested);
   const parts = {
     ranking,
     pool: POOL_CONFIG,

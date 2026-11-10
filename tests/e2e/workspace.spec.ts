@@ -16,7 +16,7 @@ function collectErrors(page: Page): string[] {
 async function startDemo(page: Page, scenario = "complete") {
   await page.goto(`/demo?scenario=${scenario}&pace=fast`);
   await page.getByRole("button", { name: "Use the sample show" }).click();
-  await page.getByRole("button", { name: "Find promos" }).click();
+  await page.getByRole("button", { name: "Find 10 promos" }).click();
 }
 
 const card = (page: Page, rank: number) =>
@@ -45,7 +45,7 @@ test.describe("the real workspace", () => {
       buffer: Buffer.from("not really a zip"),
     });
     await expect(page.getByText("show.zip")).toBeVisible();
-    await page.getByRole("button", { name: "Find promos" }).click();
+    await page.getByRole("button", { name: "Find 10 promos" }).click();
     await expect(
       page.getByRole("heading", { name: "Analysis is not connected yet" }),
     ).toBeVisible();
@@ -86,6 +86,33 @@ test.describe("the real workspace", () => {
 });
 
 test.describe("the labelled demo", () => {
+  test("estimates time and cost for the number chosen, and returns only what passed", async ({
+    page,
+  }) => {
+    await page.goto("/demo?scenario=complete&pace=fast");
+    await page.getByRole("button", { name: "Use the sample show" }).click();
+    await expect(page.getByLabel("Number of promos")).toHaveValue("10");
+    const estimate = page.getByText(
+      /^3 episodes\. Takes .+\. Estimated AI cost \$[\d.]+ to \$[\d.]+\.$/,
+    );
+    await expect(estimate).toBeVisible();
+    await page.getByRole("button", { name: "5", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Find 5 promos" })).toBeVisible();
+    await page.getByLabel("Number of promos").fill("20");
+    await page.getByRole("button", { name: "Find 20 promos" }).click();
+    await expect(page.getByRole("heading", { name: "Ranked promos" })).toBeVisible();
+    await expect(page.getByText(/5 of 20 requested, best first/)).toBeVisible();
+    await expect(page.getByRole("main").getByRole("note")).toContainText("You asked for 20");
+  });
+
+  test("will not start with a count outside 1 to 500", async ({ page }) => {
+    await page.goto("/demo?scenario=complete&pace=fast");
+    await page.getByRole("button", { name: "Use the sample show" }).click();
+    await page.getByLabel("Number of promos").fill("0");
+    await expect(page.getByText("Choose a whole number from 1 to 500.")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Find/ })).toBeDisabled();
+  });
+
   test("says on screen that it is made up", async ({ page }) => {
     await page.goto("/demo");
     await expect(page.getByText("A made-up show with made-up results.")).toBeVisible();
@@ -95,7 +122,7 @@ test.describe("the labelled demo", () => {
     const errors = collectErrors(page);
     await page.goto("/demo?scenario=complete");
     await page.getByRole("button", { name: "Use the sample show" }).click();
-    await page.getByRole("button", { name: "Find promos" }).click();
+    await page.getByRole("button", { name: "Find 10 promos" }).click();
     await expect(page.getByRole("heading", { name: "Finding promos" })).toBeVisible();
     await expect(page.getByRole("status").first()).toContainText(/Uploading|Checking|Reading/);
     await expect(page.locator('[aria-current="step"]')).toBeVisible();
@@ -121,7 +148,7 @@ test.describe("the labelled demo", () => {
       await page.getByLabel("Example").selectOption({ label });
       await expect(page).toHaveURL(new RegExp(`scenario=${to}`));
       await page.getByRole("button", { name: "Use the sample show" }).click();
-      await page.getByRole("button", { name: "Find promos" }).click();
+      await page.getByRole("button", { name: "Find 10 promos" }).click();
       if (to === "complete") {
         // The menu runs the example at its normal pace, so this can take several seconds.
         await expect(page.getByRole("heading", { name: "Ranked promos" })).toBeVisible({
@@ -140,7 +167,7 @@ test.describe("the labelled demo", () => {
   test("can be cancelled while running", async ({ page }) => {
     await page.goto("/demo?scenario=complete");
     await page.getByRole("button", { name: "Use the sample show" }).click();
-    await page.getByRole("button", { name: "Find promos" }).click();
+    await page.getByRole("button", { name: "Find 10 promos" }).click();
     await page.getByRole("button", { name: "Cancel analysis" }).click();
     await expect(page.getByRole("heading", { name: "Analysis stopped" })).toBeVisible();
   });
@@ -297,7 +324,7 @@ test("respects a reduced-motion preference", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/demo?scenario=complete");
   await page.getByRole("button", { name: "Use the sample show" }).click();
-  await page.getByRole("button", { name: "Find promos" }).click();
+  await page.getByRole("button", { name: "Find 10 promos" }).click();
   const animations = await page.evaluate(
     () => document.getAnimations().filter((a) => a.playState === "running").length,
   );
