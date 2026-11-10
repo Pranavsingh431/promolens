@@ -111,6 +111,32 @@ test.describe("the labelled demo", () => {
     expect(errors).toEqual([]);
   });
 
+  test("runs the example chosen in the menu, not the one shown before", async ({ page }) => {
+    for (const [from, to, label] of [
+      ["failed", "complete", "Finished analysis"],
+      ["complete", "failed", "Failed analysis"],
+    ] as const) {
+      await page.goto(`/demo?scenario=${from}&pace=fast`);
+      await page.getByRole("button", { name: "Use the sample show" }).waitFor();
+      await page.getByLabel("Example").selectOption({ label });
+      await expect(page).toHaveURL(new RegExp(`scenario=${to}`));
+      await page.getByRole("button", { name: "Use the sample show" }).click();
+      await page.getByRole("button", { name: "Find promos" }).click();
+      if (to === "complete") {
+        // The menu runs the example at its normal pace, so this can take several seconds.
+        await expect(page.getByRole("heading", { name: "Ranked promos" })).toBeVisible({
+          timeout: 15_000,
+        });
+        await expect(page.getByText("No episodes were found")).toHaveCount(0);
+      } else {
+        await expect(page.getByRole("main").getByRole("alert")).toContainText(
+          "No episodes were found",
+          { timeout: 15_000 },
+        );
+      }
+    }
+  });
+
   test("can be cancelled while running", async ({ page }) => {
     await page.goto("/demo?scenario=complete");
     await page.getByRole("button", { name: "Use the sample show" }).click();

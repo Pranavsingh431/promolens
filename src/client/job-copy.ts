@@ -39,7 +39,8 @@ export const FAILURE_COPY: Record<JobFailureCode, { title: string; message: stri
   },
   "no-episodes": {
     title: "No episodes were found",
-    message: "The ZIP opened, but nothing in it looked like a timestamped episode screenplay.",
+    message:
+      "This ZIP contains no screenplay episodes. Upload the ZIP containing your timestamped episode scripts.",
   },
   "too-large": {
     title: "This show is too large",

@@ -131,7 +131,8 @@ function rejectionCode(codes: readonly string[]): JobFailureCode {
 }
 
 const REJECTION_MESSAGE: Record<string, string> = {
-  "no-episodes": "Nothing in this ZIP looked like a timestamped episode screenplay.",
+  "no-episodes":
+    "This ZIP contains no screenplay episodes. Upload the ZIP containing your timestamped episode scripts.",
   "too-large": "This ZIP is over one of the size limits.",
   "invalid-archive": "This file is not a ZIP that PromoLens can safely open.",
   "unsupported-format": "Some screenplays in this ZIP could not be read.",

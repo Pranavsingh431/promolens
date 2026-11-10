@@ -193,6 +193,37 @@ describe("completing an upload runs every archive check on the server", () => {
     expect(await rejected(zip)).toEqual({ status: 422, code: "no-episodes" });
   });
 
+  it("refuses an exported results archive and says what to upload instead", async () => {
+    const zip = buildZip([
+      {
+        name: "promolens-outputs/promos.csv",
+        data: "rank,episode,start,end\n1,1,00:05.00,00:31.00\n",
+      },
+      { name: "promolens-outputs/promos.json", data: '{"promos":[]}' },
+      { name: "promolens-outputs/report.md", data: "# Ranked promos" },
+    ]);
+    const { complete } = await uploadZip(cookie, zip, "promolens-raw-outputs.zip");
+    expect(complete?.status).toBe(422);
+    const body = (await complete?.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("no-episodes");
+    expect(body.error.message).toContain("contains no screenplay episodes");
+  });
+
+  it("accepts the supplied pack's layout: one folder with spaces and dots in its name", async () => {
+    // A made-up stand-in for the real pack: a top-level folder entry, a folder name with
+    // spaces and full stops, and long episode file names with spaces.
+    const folder = "A Made Up Show. Part Two";
+    const zip = buildZip([
+      { name: `${folder}/` },
+      ...unseenShowEntries(4, "made-up-layout").map((entry, i) => ({
+        name: `${folder}/episode-${String(i + 1).padStart(3, "0")}-Episode ${1_000_001 + i}.txt`,
+        data: entry.data,
+      })),
+    ]);
+    const { episodes } = await uploadShow(cookie, zip, `${folder}-scripts (2).zip`);
+    expect(episodes).toBe(4);
+  });
+
   it("refuses a text file that is not in the screenplay format", async () => {
     const broken = (NIGHT_FERRY[0]?.text ?? "").replace("Start: (00:00.00)", "Start: (soon)");
     const zip = buildZip([{ name: "episode-1.txt", data: broken }]);

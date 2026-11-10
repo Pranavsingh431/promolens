@@ -26,17 +26,22 @@ function sampleFile(): File {
  */
 export function DemoWorkspace({ scenario, pace }: { scenario: DemoScenario; pace: DemoPace }) {
   const router = useRouter();
-  const [service, setService] = useState<AnalysisService | null>(null);
+  const example = `${scenario}:${pace}`;
+  const [loaded, setLoaded] = useState<{ example: string; service: AnalysisService } | null>(null);
 
   useEffect(() => {
     let live = true;
     void import("@/demo/service").then(({ createDemoService }) => {
-      if (live) setService(createDemoService({ scenario, pace }));
+      if (live) setLoaded({ example, service: createDemoService({ scenario, pace }) });
     });
     return () => {
       live = false;
     };
-  }, [scenario, pace]);
+  }, [example, scenario, pace]);
+
+  // The workspace keeps the service it starts with, so it must never start with the service of
+  // the example shown before. Until the new one is ready, show the loading state instead.
+  const service = loaded?.example === example ? loaded.service : null;
 
   return (
     <>
@@ -65,7 +70,7 @@ export function DemoWorkspace({ scenario, pace }: { scenario: DemoScenario; pace
         </div>
       </div>
       {service ? (
-        <Workspace key={scenario} service={service} sampleFile={sampleFile} />
+        <Workspace key={example} service={service} sampleFile={sampleFile} />
       ) : (
         <main id="main" className="mx-auto max-w-2xl px-4 sm:px-6">
           <LoadingState label="Loading the demo" />
