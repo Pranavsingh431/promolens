@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, test, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      # Test-only credentials for the throwaway database below. CI has no model
+      # key: every test uses a local mock model and synthetic screenplays.
+      PG_SERVER: postgres://promolens:promolens@127.0.0.1:5432
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: promolens
+          POSTGRES_PASSWORD: promolens
+          POSTGRES_DB: promolens
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U promolens"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Fails on any high or critical advisory in runtime dependencies. The known
+      # moderate findings are described in SECURITY.md.
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+
+      - name: Unit, component, and command-line tests
+        run: npx vitest run
+
+      # The race tests use the migrated default database. Every other backend
+      # test file creates, migrates, and drops its own database on the server.
+      - name: Migrate the test database
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ env.PG_SERVER }}/promolens
+
+      - name: Backend tests on PostgreSQL
+        run: npm run test:backend
+        env:
+          BACKEND_TEST_DATABASE_URL: ${{ env.PG_SERVER }}/promolens
+          TEST_DATABASE_URL: ${{ env.PG_SERVER }}/promolens
+
+      - name: Workflow tests on PostgreSQL
+        run: npm run test:workflow
+        env:
+          BACKEND_TEST_DATABASE_URL: ${{ env.PG_SERVER }}/promolens
+
+      - run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps --only-shell chromium
+
+      - name: Browser tests
+        run: npx playwright test
+
+      # The real app, a fresh migrated database, and local storage, with a mock
+      # model service. The database is new because the tests expect unseen shows.
+      - name: Backend browser tests on PostgreSQL
+        run: |
+          node -e '
+            const { Client } = require("pg");
+            const c = new Client({ connectionString: process.env.PG_SERVER + "/promolens" });
+            c.connect()
+              .then(() => c.query("DROP DATABASE IF EXISTS promolens_e2e"))
+              .then(() => c.query("CREATE DATABASE promolens_e2e"))
+              .finally(() => c.end());
+          '
+          DATABASE_URL="$PG_SERVER/promolens_e2e" npm run db:migrate
+          E2E_DATABASE_URL="$PG_SERVER/promolens_e2e" npm run test:e2e:backend
+
+      # The browser tests render the app with synthetic data only, so the
+      # report holds no confidential content.
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="PromoLens">
+  <rect width="64" height="64" rx="15" fill="#17130E"/>
+  <rect x="0.5" y="0.5" width="63" height="63" rx="14.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.12"/>
+  <path d="M8 32H56" stroke="#6E6457" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M24 19H17V45H24" fill="none" stroke="#F6F0E6" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M40 19H47V45H40" fill="none" stroke="#F6F0E6" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="32" cy="32" r="7.5" fill="#F2A93B"/>
+</svg>

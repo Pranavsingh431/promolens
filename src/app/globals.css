@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+/*
+  PromoLens design tokens.
+
+  Raw color values live only in this file. Components use the utilities that
+  Tailwind generates from the @theme blocks below (bg-canvas, text-ink,
+  border-line, rounded-md, shadow-raised, font-display, and so on). The default
+  Tailwind palette, radius scale, and shadows are cleared so components cannot
+  drift from the system.
+
+  The theme follows the operating system setting. There is no manual toggle.
+  The brand mark keeps fixed colors in both themes (see components/brand/mark.ts).
+*/
+
+:root {
+  color-scheme: light;
+  --pl-canvas: #faf7f2;
+  --pl-surface: #ffffff;
+  --pl-sunken: #f3eee5;
+  --pl-line: #e4ddd1;
+  --pl-line-strong: #8c806d;
+  --pl-ink: #1b1712;
+  --pl-ink-muted: #5e564b;
+  --pl-accent: #f2a93b;
+  --pl-on-accent: #1b1712;
+  --pl-accent-ink: #8a4f00;
+  --pl-danger: #b42318;
+  --pl-danger-surface: #fdeceb;
+  --pl-shadow: 0 1px 2px rgb(27 23 18 / 0.06), 0 8px 24px rgb(27 23 18 / 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --pl-canvas: #12100d;
+    --pl-surface: #1a1713;
+    --pl-sunken: #0e0c0a;
+    --pl-line: #2f2a23;
+    --pl-line-strong: #7a7062;
+    --pl-ink: #f4efe7;
+    --pl-ink-muted: #a99f91;
+    --pl-accent: #f2a93b;
+    --pl-on-accent: #1b1712;
+    --pl-accent-ink: #f5b95e;
+    --pl-danger: #ff8b7b;
+    --pl-danger-surface: #2b1512;
+    --pl-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.25);
+  }
+}
+
+@theme inline {
+  --color-*: initial;
+  --color-canvas: var(--pl-canvas);
+  --color-surface: var(--pl-surface);
+  --color-sunken: var(--pl-sunken);
+  --color-line: var(--pl-line);
+  --color-line-strong: var(--pl-line-strong);
+  --color-ink: var(--pl-ink);
+  --color-ink-muted: var(--pl-ink-muted);
+  --color-accent: var(--pl-accent);
+  --color-on-accent: var(--pl-on-accent);
+  --color-accent-ink: var(--pl-accent-ink);
+  --color-danger: var(--pl-danger);
+  --color-danger-surface: var(--pl-danger-surface);
+
+  --shadow-*: initial;
+  --shadow-raised: var(--pl-shadow);
+
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-instrument-serif), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+@theme {
+  --radius-*: initial;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  --container-content: 72rem;
+  --container-workspace: 96rem;
+
+  --text-display: clamp(2.5rem, 1.6rem + 3.4vw, 4.25rem);
+  --text-display--line-height: 1.04;
+  --text-display--letter-spacing: -0.015em;
+
+  --animate-trim-in: trim-in 1.6s ease-in-out infinite;
+  --animate-trim-in-reverse: trim-in-reverse 1.6s ease-in-out infinite;
+  --animate-moment: moment 1.6s ease-in-out infinite;
+
+  @keyframes trim-in {
+    50% {
+      transform: translateX(3px);
+    }
+  }
+
+  @keyframes trim-in-reverse {
+    50% {
+      transform: translateX(-3px);
+    }
+  }
+
+  @keyframes moment {
+    50% {
+      opacity: 0.45;
+    }
+  }
+}
+
+/* Ending evidence is striped so it never relies on color alone to differ from hook evidence. */
+@utility evidence-stripes {
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--color-accent-ink) 0 2px,
+    transparent 2px 4px
+  );
+}
+
+@layer base {
+  html {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent-ink);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+
+  /* The page behind a full-screen detail view should not scroll. */
+  html:has(dialog[open]) {
+    overflow: hidden;
+  }
+}

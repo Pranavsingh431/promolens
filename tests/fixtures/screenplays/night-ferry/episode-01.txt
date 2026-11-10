@@ -1,0 +1,89 @@
+EPISODE NUMBER: Episode 1
+EPISODE LOGLINE: A stowaway hides aboard the last ferry of the night, and the captain finds a ledger that should not exist.
+CONTINUITY NOTES: First episode. Introduces Mara, Captain Oda, and the purser.
+
+--- SCRIPT START ---
+
+SCENE 01
+Scene heading: EXT. FERRY DECK – NIGHT
+Scene start: 00:00.00
+Scene end: 00:20.00
+
+Actions and dialogue:
+
+**CAMERA:**
+Start: (00:00.00) | End: (00:04.50)
+Wide shot of a ferry cutting through black water, its deck lights flickering.
+
+**ACTION:**
+Start: (00:01.00) | End: (00:04.50)
+Mara climbs over the rail and drops behind a stack of crates.
+
+**CAMERA:**
+Start: (00:04.50) | End: (00:09.00)
+Close-up on Mara's hands clutching a soaked canvas bag.
+
+**CAPTAIN ODA (O.S.) (Sharp):**
+Start: (00:05.20) | End: (00:07.00)
+"Who's back there?"
+
+**MARA (V.O.) (Whispering):**
+Start: (00:07.40) | End: (00:09.60)
+"Don't move. Don't breathe."
+
+**CAMERA:**
+Start: (00:09.00) | End: (00:14.00)
+Medium shot as Captain Oda rounds the crates holding a lantern.
+
+**CAPTAIN ODA (Cold):**
+Start: (00:10.00) | End: (00:12.40)
+"Stand up. Slowly."
+
+**MARA (Defiant):**
+Start: (00:12.00) | End: (00:13.80)
+"Make me."
+
+**SOUND FX:**
+Start: (00:13.50) | End: (00:15.00)
+A ship horn blasts across the water.
+
+**CAMERA:**
+Start: (00:14.00) | End: (00:20.00)
+Close-up on the captain's face as the lantern light catches an old scar.
+
+SCENE 02
+Scene heading: INT. CAPTAIN'S CABIN – CONTINUOUS
+Scene start: 00:20.00
+Scene end: 00:45.00
+
+Actions and dialogue:
+
+**CAMERA:**
+Start: (00:20.00) | End: (00:26.00)
+Wide shot of a cramped cabin lined with charts.
+
+**ACTION:**
+Start: (00:21.00) | End: (00:25.00)
+The captain drops a leather ledger on the desk.
+
+**THE PURSER (Nervous):**
+Start: (00:26.50) | End: (00:28.00)
+"Where did you find that?"
+
+**CAMERA:**
+Start: (00:26.00) | End: (00:32.00)
+Two-shot of the purser and the captain over the open ledger.
+
+**CAPTAIN ODA:**
+Start: (00:29.00) | End: (00:31.50)
+"In her bag. With our names in it."
+
+**CAMERA:**
+Start: (00:32.00) | End: (00:45.00)
+Slow push-in on the open ledger. Cut to black.
+
+**SOUND FX:**
+Start: (00:43.00) | End: (00:45.80)
+A low drone rises and cuts out.
+
+--- SCRIPT END ---

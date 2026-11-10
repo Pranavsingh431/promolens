@@ -1,0 +1,61 @@
+EPISODE NUMBER: Episode 2
+CONTINUITY NOTES: Picks up seconds after Episode 1.
+WRITER DRAFT: 3
+
+--- SCRIPT START ---
+
+SCENE 01
+SCENE HEADING: INT. CAPTAIN'S CABIN - CONTINUOUS
+SCENE START: 00:00.00
+SCENE END: 00:30.00
+
+ACTIONS AND DIALOGUE:
+
+**CAMERA:**
+Start: (00:00.00) | End: (00:05.00)
+Close-up on Mara's face, lit by the lantern.
+
+**MARA (Steady):**
+Start: (00:01.00) | End: (00:03.50)
+"Those names are not yours to read."
+
+**CAMERA:**
+Start: (00:05.00) | End: (00:12.00)
+Over-the-shoulder shot of the captain closing the ledger.
+
+**CAPTAIN ODA (Quiet):**
+Start: (00:06.00) | End: (00:09.00)
+"Then whose are they?"
+
+**ACTION:**
+Start: (00:09.50) | End: (00:12.00)
+Mara glances at the porthole, where a second boat's light is getting closer.
+
+**CAMERA:**
+Start: (00:12.00) | End: (00:30.00)
+Wide shot of the cabin as the lights go out.
+
+SCENE 02
+SCENE HEADING: EXT. FERRY DECK - NIGHT
+SCENE START: 00:30.00
+SCENE END: 00:52.25
+
+ACTIONS AND DIALOGUE:
+
+**CAMERA:**
+Start: (00:30.00) | End: (00:40.00)
+Tracking shot along the wet deck toward the stairs.
+
+**SOUND FX:**
+Start: (00:31.00) | End: (00:33.00)
+Footsteps on the metal stairs.
+
+**THE PURSER (O.S. / Shouting):**
+Start: (00:34.00) | End: (00:36.25)
+"Captain! They're boarding us!"
+
+**CAMERA:**
+Start: (00:40.00) | End: (00:52.25)
+Close-up on Mara slipping the ledger into her coat.
+
+--- SCRIPT END ---

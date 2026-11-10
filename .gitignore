@@ -1,0 +1,50 @@
+# Secrets. Only .env.example is tracked.
+.env
+.env.*
+!.env.example
+
+# Confidential inputs. Screenplay packs, extracted scripts, the assignment
+# brief, and anything derived from them stay on the local machine.
+/*.zip
+/*.pdf
+/private/
+/inputs/
+/outputs/
+episode-*.txt
+!tests/fixtures/**
+
+# Dependencies
+node_modules/
+
+# Next.js and build output
+.next/
+out/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+# Test output
+coverage/
+.vitest/
+playwright-report/
+test-results/
+blob-report/
+
+# Caches and logs
+.cache/
+.eslintcache
+npm-debug.log*
+
+# Deployment
+.vercel/
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+/.swc
+
+# Local backend data. Holds uploaded screenplays and results.
+/.workflow-data/
+/.workflow-vitest/
+/.data/

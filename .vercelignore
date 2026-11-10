@@ -1,0 +1,21 @@
+# Keeps confidential inputs out of Vercel CLI uploads.
+# Git-based deployments already skip everything in .gitignore.
+/*.zip
+/*.pdf
+/private/
+/inputs/
+/outputs/
+.env
+.env.*
+!.env.example
+
+# Local backend data. Holds uploaded screenplays and results.
+/.workflow-data/
+/.workflow-vitest/
+/.data/
+
+# Local build and test output. Vercel builds from source, so none of it is needed.
+/.next/
+/test-results/
+/playwright-report/
+/coverage/

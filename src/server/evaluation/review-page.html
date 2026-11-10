@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PromoLens review</title>
+    <style>
+      :root {
+        --canvas: #faf7f2;
+        --surface: #ffffff;
+        --sunken: #f3eee5;
+        --line: #e4ddd1;
+        --line-strong: #8c806d;
+        --ink: #1b1712;
+        --muted: #5e564b;
+        --accent: #f2a93b;
+        --accent-ink: #8a4f00;
+        --danger: #b42318;
+        --ok: #2f6b3a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--ink);
+        font:
+          15px/1.45 system-ui,
+          sans-serif;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+      header h1 {
+        margin: 0;
+        font:
+          400 24px/1 Georgia,
+          serif;
+      }
+      main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      button,
+      select,
+      input,
+      textarea {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+        border: 1px solid var(--line-strong);
+        background: var(--surface);
+        color: var(--ink);
+        border-radius: 6px;
+        padding: 6px 12px;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--ink);
+        font-weight: 600;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent-ink);
+        outline-offset: 2px;
+      }
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .error {
+        color: var(--danger);
+      }
+      .ok {
+        color: var(--ok);
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .tabs button[aria-selected="true"] {
+        background: var(--ink);
+        color: var(--canvas);
+        border-color: var(--ink);
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 800px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+      .episode-list button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        margin-bottom: 6px;
+      }
+      .episode-list button[aria-current="true"] {
+        border-color: var(--accent-ink);
+        background: var(--sunken);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      td,
+      th {
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+        text-align: left;
+      }
+      tr.event {
+        cursor: pointer;
+      }
+      tr.event:hover {
+        background: var(--sunken);
+      }
+      tr.selected {
+        background: #fdf0d9;
+      }
+      tr.scene td {
+        background: var(--sunken);
+        font-weight: 600;
+        font-size: 13px;
+      }
+      td.time {
+        font-family: ui-monospace, monospace;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      td.kind {
+        font-size: 12px;
+        text-transform: uppercase;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .scroll {
+        max-height: 55vh;
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+      }
+      .selection {
+        position: sticky;
+        top: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        padding: 10px;
+        background: var(--sunken);
+        border-radius: 6px;
+        margin: 12px 0;
+      }
+      .selection input {
+        width: 90px;
+      }
+      fieldset {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        margin: 0 0 12px;
+        padding: 10px 12px;
+      }
+      legend {
+        font-weight: 600;
+        padding: 0 4px;
+      }
+      .levels label {
+        display: flex;
+        gap: 8px;
+        padding: 2px 0;
+        font-size: 14px;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+      .chips label {
+        display: inline-flex;
+        gap: 4px;
+        margin-right: 12px;
+        font-size: 14px;
+      }
+      textarea {
+        width: 100%;
+        min-height: 60px;
+      }
+      .hidden {
+        display: none !important;
+      }
+      ul.issues {
+        margin: 6px 0;
+        padding-left: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>PromoLens review</h1>
+      <form id="reviewer-form" class="row">
+        <label for="reviewer">Reviewer code</label>
+        <input
+          id="reviewer"
+          required
+          pattern="[A-Z0-9]{2,12}"
+          placeholder="R1"
+          autocomplete="off"
+        />
+        <button class="primary" type="submit">Start</button>
+      </form>
+      <span id="status" class="muted" role="status"></span>
+    </header>
+
+    <main>
+      <section id="intro" class="panel">
+        <h2>How this works</h2>
+        <ol>
+          <li>
+            Enter your anonymous reviewer code. Your work is saved to your own file and you can
+            resume any time.
+          </li>
+          <li>
+            <strong>Part A, find moments.</strong> Read a whole episode and mark the clips you would
+            post, 20 to 60 seconds each. Do this before Part B.
+          </li>
+          <li>
+            <strong>Part B, rate clips.</strong> Rate clips one at a time as someone who has never
+            seen the show. Judge only what is shown.
+          </li>
+        </ol>
+        <p class="muted">
+          A clip can only be kept if the hook, the ending, and the clarity are all rated 2 or
+          higher.
+        </p>
+      </section>
+
+      <div id="work" class="hidden">
+        <div class="tabs" role="tablist">
+          <button id="tab-a" role="tab" aria-selected="true" type="button">
+            Part A: Find moments
+          </button>
+          <button id="tab-b" role="tab" aria-selected="false" type="button">
+            Part B: Rate clips
+          </button>
+        </div>
+
+        <section id="part-a" class="layout">
+          <nav class="panel episode-list" aria-label="Episodes" id="episode-list"></nav>
+          <div>
+            <div id="episode-empty" class="panel muted">Choose an episode.</div>
+            <div id="episode-view" class="hidden">
+              <div class="panel">
+                <div class="row" style="justify-content: space-between">
+                  <h2 id="episode-title" style="margin: 0"></h2>
+                  <label
+                    ><input type="checkbox" id="episode-complete" /> I have read the whole episode
+                    and marked every moment I would post</label
+                  >
+                </div>
+                <p class="muted">
+                  Click a line to set the start. Click a later line to set the end. Adjust the
+                  seconds below if needed.
+                </p>
+                <div class="selection" aria-live="polite">
+                  <label
+                    >Start (s) <input id="sel-start" type="number" step="0.01" min="0"
+                  /></label>
+                  <label>End (s) <input id="sel-end" type="number" step="0.01" min="0" /></label>
+                  <span id="sel-info"></span>
+                  <button type="button" id="sel-clear">Clear</button>
+                </div>
+                <ul id="sel-issues" class="issues"></ul>
+                <div class="scroll">
+                  <table>
+                    <tbody id="events"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="panel">
+                <h3 id="moment-heading">Rate the selected clip</h3>
+                <form id="moment-form"></form>
+              </div>
+              <div class="panel">
+                <h3>Saved moments</h3>
+                <ul id="moments"></ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="part-b" class="hidden">
+          <div class="panel">
+            <div class="row" style="justify-content: space-between">
+              <h2 id="item-title" style="margin: 0"></h2>
+              <div class="row">
+                <button type="button" id="item-prev">Previous</button>
+                <button type="button" id="item-next">Next</button>
+                <button type="button" id="item-unrated">Next unrated</button>
+              </div>
+            </div>
+            <p class="muted">
+              You have never seen this show. Judge only what is shown below. Times start at 00:00
+              for this clip.
+            </p>
+            <div class="scroll">
+              <table>
+                <tbody id="item-events"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Your rating</h3>
+            <form id="item-form"></form>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      "use strict";
+      const $ = (id) => document.getElementById(id);
+      const state = {
+        session: null,
+        reviewer: "",
+        file: null,
+        tab: "a",
+        episode: null,
+        view: null,
+        start: null,
+        end: null,
+        editing: null,
+        itemIndex: 0,
+      };
+
+      async function api(path, options = {}) {
+        const response = await fetch(path, {
+          headers: { "content-type": "application/json" },
+          ...options,
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok)
+          throw Object.assign(new Error(body.error || response.statusText), {
+            body,
+            status: response.status,
+          });
+        return body;
+      }
+
+      function fmt(ms) {
+        const total = Math.floor(ms / 1000);
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${pad(Math.floor(total / 60))}:${pad(total % 60)}.${pad(Math.floor((ms % 1000) / 10))}`;
+      }
+
+      function el(tag, props = {}, children = []) {
+        const node = document.createElement(tag);
+        for (const [key, value] of Object.entries(props)) {
+          if (key === "text") node.textContent = value;
+          else if (key === "className") node.className = value;
+          else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+          else node.setAttribute(key, value);
+        }
+        for (const child of children) if (child) node.append(child);
+        return node;
+      }
+
+      function say(message, kind = "muted") {
+        $("status").textContent = message;
+        $("status").className = kind;
+      }
+
+      async function save() {
+        try {
+          const result = await api(`/api/annotations/${state.reviewer}`, {
+            method: "PUT",
+            body: JSON.stringify({ baseRevision: state.file.revision, file: state.file }),
+          });
+          state.file = result.file;
+          say(`Saved (revision ${result.revision}).`, "ok");
+          return true;
+        } catch (error) {
+          const issues = error.body?.issues?.map((i) => i.message).join(" ") ?? "";
+          say(`${error.message} ${issues}`, "error");
+          return false;
+        }
+      }
+
+      // Rating form shared by Part A and Part B.
+      function ratingForm(form, judgment, submitLabel, onSubmit) {
+        const rubric = state.session.rubric;
+        form.replaceChildren();
+        for (const criterion of rubric.criteria) {
+          const essential = rubric.essential.includes(criterion.id) ? " (essential)" : "";
+          const set = el("fieldset", {}, [
+            el("legend", { text: `${criterion.name}${essential}` }),
+            el("div", { className: "muted", text: criterion.question }),
+          ]);
+          const levels = el("div", { className: "levels" });
+          criterion.levels.forEach((text, value) => {
+            const input = el("input", {
+              type: "radio",
+              name: criterion.id,
+              value: String(value),
+              required: "",
+            });
+            if (judgment?.ratings[criterion.id] === value) input.checked = true;
+            levels.append(el("label", {}, [input, el("span", { text: `${value}. ${text}` })]));
+          });
+          set.append(levels);
+          form.append(set);
+        }
+        const decision = el("fieldset", {}, [el("legend", { text: "Decision" })]);
+        const reason = el("select", { name: "mainReason", required: "" });
+        const fillReasons = () => {
+          const value = form.querySelector('input[name="decision"]:checked')?.value;
+          const options =
+            value === "keep" ? rubric.keepReasons : value === "reject" ? rubric.rejectReasons : [];
+          reason.replaceChildren(
+            el("option", { value: "", text: "Main reason" }),
+            ...options.map((o) => el("option", { value: o, text: o })),
+          );
+          if (judgment && options.includes(judgment.mainReason)) reason.value = judgment.mainReason;
+        };
+        for (const value of ["keep", "reject"]) {
+          const input = el("input", {
+            type: "radio",
+            name: "decision",
+            value,
+            required: "",
+            onchange: fillReasons,
+          });
+          if (judgment?.decision === value) input.checked = true;
+          decision.append(
+            el("label", { className: "chips" }, [
+              input,
+              el("span", { text: value === "keep" ? "Keep" : "Reject" }),
+            ]),
+          );
+        }
+        decision.append(
+          el("div", { className: "row" }, [el("label", { text: "Main reason " }), reason]),
+        );
+        form.append(decision);
+        const weak = el("fieldset", { className: "chips" }, [
+          el("legend", { text: "Weaknesses (optional)" }),
+        ]);
+        for (const value of rubric.weaknesses) {
+          const input = el("input", { type: "checkbox", name: "weaknesses", value });
+          if (judgment?.weaknesses.includes(value)) input.checked = true;
+          weak.append(el("label", {}, [input, el("span", { text: value })]));
+        }
+        form.append(weak);
+        const notes = el("textarea", {
+          name: "notes",
+          maxlength: "1000",
+          placeholder: "Short notes (optional). Do not paste script text.",
+        });
+        notes.value = judgment?.notes ?? "";
+        form.append(el("label", { text: "Notes" }), notes);
+        const message = el("p", { className: "error" });
+        form.append(
+          message,
+          el("button", { className: "primary", type: "submit", text: submitLabel }),
+        );
+        fillReasons();
+        form.onsubmit = (event) => {
+          event.preventDefault();
+          const data = new FormData(form);
+          const ratings = Object.fromEntries(
+            rubric.criteria.map((c) => [c.id, Number(data.get(c.id))]),
+          );
+          const result = {
+            ratings,
+            decision: data.get("decision"),
+            mainReason: data.get("mainReason"),
+            weaknesses: data.getAll("weaknesses"),
+            notes: String(data.get("notes") ?? "").trim(),
+          };
+          const low = rubric.essential.filter((id) => ratings[id] < rubric.keepMinimum);
+          if (result.decision === "keep" && low.length) {
+            message.textContent = `To keep a clip, rate ${low.join(", ")} at ${rubric.keepMinimum} or higher, or reject it.`;
+            return;
+          }
+          message.textContent = "";
+          onSubmit(result);
+        };
+      }
+
+      // Part A
+      function entryFor(episode) {
+        let entry = state.file.partA.find((e) => e.episode === episode);
+        if (!entry) {
+          entry = { episode, status: "in-progress", moments: [] };
+          state.file.partA.push(entry);
+        }
+        return entry;
+      }
+
+      function renderEpisodeList() {
+        const list = $("episode-list");
+        list.replaceChildren(el("h2", { text: "Episodes", style: "margin-top:0;font-size:16px" }));
+        for (const episode of state.session.episodes) {
+          const entry = state.file.partA.find((e) => e.episode === episode);
+          const status = entry
+            ? entry.status === "complete"
+              ? "complete"
+              : "in progress"
+            : "not started";
+          const count = entry ? `, ${entry.moments.length} moments` : "";
+          list.append(
+            el("button", {
+              type: "button",
+              "aria-current": String(state.episode === episode),
+              text: `Episode ${episode}: ${status}${count}`,
+              onclick: () => openEpisode(episode),
+            }),
+          );
+        }
+      }
+
+      async function openEpisode(episode) {
+        state.episode = episode;
+        state.view = await api(`/api/episodes/${episode}`);
+        state.start = state.end = state.editing = null;
+        $("episode-empty").classList.add("hidden");
+        $("episode-view").classList.remove("hidden");
+        $("episode-title").textContent = `Episode ${episode}`;
+        $("episode-complete").checked =
+          state.file.partA.find((e) => e.episode === episode)?.status === "complete";
+        renderEvents();
+        renderSelection();
+        renderMoments();
+        renderEpisodeList();
+        ratingForm($("moment-form"), null, "Save moment", saveMoment);
+      }
+
+      function renderEvents() {
+        const body = $("events");
+        body.replaceChildren();
+        const scenes = new Map(state.view.scenes.map((s) => [s.id, s]));
+        let scene = null;
+        for (const event of state.view.events) {
+          if (event.sceneId !== scene) {
+            scene = event.sceneId;
+            body.append(
+              el("tr", { className: "scene" }, [
+                el("td", { colspan: "4", text: scenes.get(scene)?.heading || "Scene" }),
+              ]),
+            );
+          }
+          const inRange =
+            state.start !== null &&
+            event.startMs < (state.end ?? state.start + 1) &&
+            event.endMs > state.start;
+          const row = el(
+            "tr",
+            {
+              className: `event${inRange ? " selected" : ""}`,
+              tabindex: "0",
+              onclick: () => pick(event),
+              onkeydown: (e) => e.key === "Enter" && pick(event),
+            },
+            [
+              el("td", { className: "time", text: `${fmt(event.startMs)} to ${fmt(event.endMs)}` }),
+              el("td", { className: "kind", text: event.kind }),
+              el("td", {
+                text: event.speaker
+                  ? `${event.speaker}${event.delivery !== "on-screen" ? ` (${event.delivery})` : ""}`
+                  : "",
+              }),
+              el("td", { text: event.text }),
+            ],
+          );
+          body.append(row);
+        }
+      }
+
+      function pick(event) {
+        if (state.start === null || state.end !== null) {
+          state.start = event.startMs;
+          state.end = null;
+        } else if (event.endMs > state.start) {
+          state.end = event.endMs;
+        } else {
+          state.start = event.startMs;
+        }
+        renderSelection();
+        renderEvents();
+      }
+
+      async function renderSelection() {
+        $("sel-start").value = state.start === null ? "" : (state.start / 1000).toFixed(2);
+        $("sel-end").value = state.end === null ? "" : (state.end / 1000).toFixed(2);
+        const issues = $("sel-issues");
+        issues.replaceChildren();
+        if (state.start === null || state.end === null) {
+          $("sel-info").textContent = "Select a start and an end.";
+          return;
+        }
+        const seconds = (state.end - state.start) / 1000;
+        $("sel-info").textContent =
+          `${fmt(state.start)} to ${fmt(state.end)}, ${seconds.toFixed(2)} s`;
+        try {
+          const result = await api("/api/check", {
+            method: "POST",
+            body: JSON.stringify({
+              segments: [{ episode: state.episode, startMs: state.start, endMs: state.end }],
+            }),
+          });
+          for (const issue of result.issues)
+            issues.append(
+              el("li", {
+                className: issue.severity === "error" ? "error" : "muted",
+                text: issue.message,
+              }),
+            );
+          if (!result.issues.length)
+            issues.append(el("li", { className: "ok", text: "Length and edges look fine." }));
+        } catch (error) {
+          issues.append(el("li", { className: "error", text: error.message }));
+        }
+      }
+
+      function readSelectionInputs() {
+        const start = Math.round(Number($("sel-start").value) * 1000);
+        const end = Math.round(Number($("sel-end").value) * 1000);
+        state.start = $("sel-start").value === "" ? null : start;
+        state.end = $("sel-end").value === "" ? null : end;
+        renderSelection();
+        renderEvents();
+      }
+
+      async function saveMoment(judgment) {
+        if (state.start === null || state.end === null)
+          return say("Select a start and an end first.", "error");
+        const entry = entryFor(state.episode);
+        const tag = `M-E${String(state.episode).padStart(3, "0")}-`;
+        const next = Math.max(0, ...entry.moments.map((m) => Number(m.id.slice(tag.length)))) + 1;
+        const moment = {
+          id: state.editing ?? `${tag}${String(next).padStart(2, "0")}`,
+          segments: [{ episode: state.episode, startMs: state.start, endMs: state.end }],
+          judgment,
+        };
+        const backup = structuredClone(state.file);
+        const index = entry.moments.findIndex((m) => m.id === moment.id);
+        if (index >= 0) entry.moments[index] = { ...entry.moments[index], ...moment };
+        else entry.moments.push(moment);
+        if (await save()) {
+          state.start = state.end = state.editing = null;
+          ratingForm($("moment-form"), null, "Save moment", saveMoment);
+        } else {
+          state.file = backup;
+        }
+        renderSelection();
+        renderEvents();
+        renderMoments();
+        renderEpisodeList();
+      }
+
+      function renderMoments() {
+        const list = $("moments");
+        list.replaceChildren();
+        const entry = state.file.partA.find((e) => e.episode === state.episode);
+        for (const moment of entry?.moments ?? []) {
+          const [segment] = moment.segments;
+          list.append(
+            el("li", {}, [
+              el("span", {
+                text: `${moment.id}: ${fmt(segment.startMs)} to ${fmt(segment.endMs)}, ${moment.judgment.decision} (${moment.judgment.mainReason}) `,
+              }),
+              el("button", {
+                type: "button",
+                text: "Edit",
+                onclick: () => {
+                  state.start = segment.startMs;
+                  state.end = segment.endMs;
+                  state.editing = moment.id;
+                  $("moment-heading").textContent = `Editing ${moment.id}`;
+                  ratingForm($("moment-form"), moment.judgment, "Save changes", saveMoment);
+                  renderSelection();
+                  renderEvents();
+                },
+              }),
+              el("button", {
+                type: "button",
+                text: "Delete",
+                onclick: async () => {
+                  if (!confirm(`Delete ${moment.id}?`)) return;
+                  const backup = structuredClone(state.file);
+                  entry.moments = entry.moments.filter((m) => m.id !== moment.id);
+                  if (!(await save())) state.file = backup;
+                  renderMoments();
+                  renderEpisodeList();
+                },
+              }),
+            ]),
+          );
+        }
+        if (!entry?.moments.length)
+          list.append(el("li", { className: "muted", text: "No moments yet." }));
+      }
+
+      // Part B
+      async function openItem(index) {
+        const ids = state.session.items;
+        if (!ids.length) {
+          $("item-title").textContent = "No clips to rate yet.";
+          return;
+        }
+        state.itemIndex = Math.max(0, Math.min(ids.length - 1, index));
+        const item = await api(`/api/items/${ids[state.itemIndex]}`);
+        const review = state.file.partB.find((r) => r.itemId === item.itemId);
+        $("item-title").textContent =
+          `Clip ${item.position} of ${item.total} (${(item.durationMs / 1000).toFixed(1)} s)${review ? ", rated" : ""}`;
+        const body = $("item-events");
+        body.replaceChildren();
+        for (const part of item.parts) {
+          if (item.parts.length > 1)
+            body.append(
+              el("tr", { className: "scene" }, [
+                el("td", { colspan: "4", text: `Part starting at ${fmt(part.offsetMs)}` }),
+              ]),
+            );
+          for (const event of part.events) {
+            const cut = event.cutAtStart
+              ? " (already under way)"
+              : event.cutAtEnd
+                ? " (cut off)"
+                : "";
+            body.append(
+              el("tr", {}, [
+                el("td", {
+                  className: "time",
+                  text: `${fmt(event.startMs)} to ${fmt(event.endMs)}`,
+                }),
+                el("td", { className: "kind", text: event.kind }),
+                el("td", {
+                  text: event.speaker
+                    ? `${event.speaker}${event.delivery !== "on-screen" ? ` (${event.delivery})` : ""}`
+                    : "",
+                }),
+                el("td", { text: `${event.text}${cut}` }),
+              ]),
+            );
+          }
+        }
+        ratingForm($("item-form"), review?.judgment ?? null, "Save and next", async (judgment) => {
+          const backup = structuredClone(state.file);
+          const rest = state.file.partB.filter((r) => r.itemId !== item.itemId);
+          state.file.partB = [...rest, { ...(review ?? {}), itemId: item.itemId, judgment }];
+          if (await save()) openItem(state.itemIndex + 1);
+          else state.file = backup;
+        });
+      }
+
+      function showTab(tab) {
+        state.tab = tab;
+        $("tab-a").setAttribute("aria-selected", String(tab === "a"));
+        $("tab-b").setAttribute("aria-selected", String(tab === "b"));
+        $("part-a").classList.toggle("hidden", tab !== "a");
+        $("part-b").classList.toggle("hidden", tab !== "b");
+        if (tab === "b") openItem(state.itemIndex);
+      }
+
+      $("reviewer-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        state.reviewer = $("reviewer").value.trim().toUpperCase();
+        try {
+          state.session = await api("/api/session");
+          state.file = await api(`/api/annotations/${state.reviewer}`);
+          $("work").classList.remove("hidden");
+          say(
+            `Reviewing as ${state.reviewer}. ${state.file.partB.length} of ${state.session.items.length} clips rated.`,
+          );
+          renderEpisodeList();
+          showTab("a");
+        } catch (error) {
+          say(error.message, "error");
+        }
+      });
+      $("tab-a").addEventListener("click", () => showTab("a"));
+      $("tab-b").addEventListener("click", () => showTab("b"));
+      $("sel-start").addEventListener("change", readSelectionInputs);
+      $("sel-end").addEventListener("change", readSelectionInputs);
+      $("sel-clear").addEventListener("click", () => {
+        state.start = state.end = state.editing = null;
+        $("moment-heading").textContent = "Rate the selected clip";
+        renderSelection();
+        renderEvents();
+      });
+      $("episode-complete").addEventListener("change", async (event) => {
+        const entry = entryFor(state.episode);
+        const backup = structuredClone(state.file);
+        entry.status = event.target.checked ? "complete" : "in-progress";
+        if (!(await save())) {
+          state.file = backup;
+          event.target.checked = !event.target.checked;
+        }
+        renderEpisodeList();
+      });
+      $("item-prev").addEventListener("click", () => openItem(state.itemIndex - 1));
+      $("item-next").addEventListener("click", () => openItem(state.itemIndex + 1));
+      $("item-unrated").addEventListener("click", () => {
+        const rated = new Set(state.file.partB.map((r) => r.itemId));
+        const next = state.session.items.findIndex((id) => !rated.has(id));
+        if (next >= 0) openItem(next);
+        else say("Every clip is rated.", "ok");
+      });
+    </script>
+  </body>
+</html>

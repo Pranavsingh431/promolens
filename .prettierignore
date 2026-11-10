@@ -1,0 +1,6 @@
+package-lock.json
+.workflow-data
+.workflow-vitest
+.data
+src/app/.well-known
+drizzle/meta

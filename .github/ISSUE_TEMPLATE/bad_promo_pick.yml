@@ -1,0 +1,36 @@
+name: Bad promo pick
+description: PromoLens suggested a promo that an editor would not post.
+labels: [promo-quality]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These reports help measure where PromoLens picks badly. Refer to moments by episode and time. Do not paste screenplay text.
+  - type: input
+    id: location
+    attributes:
+      label: Promo rank and segments
+      placeholder: "Rank 4: episode 12, 00:31.20 to 00:58.00"
+    validations:
+      required: true
+  - type: dropdown
+    id: problem
+    attributes:
+      label: What is wrong
+      multiple: true
+      options:
+        - Weak or late hook
+        - Does not end on an unresolved moment
+        - Needs context from earlier episodes
+        - Starts or ends in the wrong place
+        - Duplicate of another pick
+        - Ranked too high
+        - Not suitable for ad platforms
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: What an editor would pick instead
+      description: Describe the better moment or boundary in your own words.

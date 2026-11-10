@@ -1,0 +1,82 @@
+{
+  "name": "promolens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Finds promo-ready moments in timestamped microdrama screenplays.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run && vitest run --config vitest.backend.config.ts",
+    "test:backend": "vitest run --config vitest.backend.config.ts",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "screenplays:validate": "node --experimental-strip-types scripts/validate-screenplays.ts",
+    "eval": "node --experimental-strip-types scripts/evaluate.ts",
+    "eval:review": "node --experimental-strip-types scripts/review-server.ts",
+    "discover": "node --experimental-strip-types scripts/discover.ts",
+    "rank": "node --experimental-strip-types scripts/rank.ts",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm run test",
+    "test:workflow": "vitest run --config vitest.workflow.config.ts",
+    "test:e2e:backend": "playwright test --config playwright.backend.config.ts",
+    "bench:backend": "vitest run --config vitest.perf.config.ts",
+    "access:hash": "node --experimental-strip-types scripts/hash-access-code.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --experimental-strip-types scripts/db-migrate.ts",
+    "retention:sweep": "node --experimental-strip-types scripts/retention-sweep.ts",
+    "cloud:verify": "node --experimental-strip-types scripts/verify-cloud.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.16",
+    "@vercel/blob": "2.9.0",
+    "drizzle-orm": "0.45.4",
+    "next": "16.4.5",
+    "pg": "8.23.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "workflow": "5.4.0",
+    "yauzl": "3.4.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.65.0",
+    "@tailwindcss/postcss": "4.3.5",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.9",
+    "@types/node": "24.19.2",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/yauzl": "3.4.0",
+    "@workflow/vitest": "5.0.8",
+    "drizzle-kit": "0.31.11",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.5",
+    "fast-check": "4.10.2",
+    "jsdom": "31.0.0",
+    "prettier": "3.9.10",
+    "tailwindcss": "4.3.5",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
+  },
+  "overrides": {
+    "zod": "4.6.7",
+    "@workflow/world-local": {
+      "undici": "7.30.2"
+    },
+    "@workflow/world-vercel": {
+      "undici": "7.30.2"
+    }
+  }
+}

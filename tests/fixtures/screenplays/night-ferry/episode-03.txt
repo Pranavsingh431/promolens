@@ -1,0 +1,30 @@
+EPISODE NUMBER: Episode 3
+EPISODE LOGLINE: The second boat reaches the ferry, and someone comes for the ledger.
+CONTINUITY NOTES: Continues from Episode 2.
+
+--- SCRIPT START ---
+
+SCENE 01
+Scene heading: INT. ENGINE ROOM
+Scene start: 00:00.00
+Scene end: 00:24.50
+
+Actions and dialogue:
+
+**CAMERA:**
+Start: (00:00.00) | End: (00:10.125)
+Low-angle shot through the engine grates.
+
+**ACTION:**
+Start: (00:02.00) | End: (00:06.00)
+Mara hides the ledger behind a pipe.
+
+**STRANGER (Calm):**
+Start: (00:07.00) | End: (00:09.00)
+"You took something that belongs to us."
+
+**CAMERA:**
+Start: (00:10.125) | End: (00:24.50)
+Close-up on a gloved hand reaching for the pipe.
+
+--- SCRIPT END ---
