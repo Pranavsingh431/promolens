@@ -454,3 +454,76 @@ describe("export", () => {
     expect(await screen.findByText("Export is not connected in this build.")).toBeTruthy();
   });
 });
+
+describe("search, filters, and sort", () => {
+  const ranksOnCards = () =>
+    screen
+      .queryAllByRole("button", { name: /^View clip details for promo \d+$/ })
+      .map((button) => Number(/promo (\d+)/.exec(button.textContent ?? "")?.[1]));
+
+  /** Every service method, watched, so the test can prove nothing was asked of it. */
+  function watchedService() {
+    const base = fakeService([job("completed")]);
+    const calls = Object.fromEntries(
+      Object.keys(base).map((key) => [key, vi.spyOn(base, key as keyof AnalysisService)]),
+    );
+    return { service: base, calls };
+  }
+
+  it("searches, filters, and sorts without asking the service for anything", async () => {
+    const user = userEvent.setup();
+    const { service, calls } = watchedService();
+    show({ service });
+    expect(ranksOnCards()).toEqual([1, 2, 3, 4, 5]);
+
+    await user.type(screen.getByRole("searchbox", { name: "Search promos" }), "episode 3");
+    await waitFor(() => expect(ranksOnCards()).toEqual([2, 3]));
+    expect(screen.getByText("2 of 5 promos")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Clear all" }));
+    expect(ranksOnCards()).toEqual([1, 2, 3, 4, 5]);
+
+    await user.click(screen.getByRole("button", { name: "Filters" }));
+    const panel = await screen.findByRole("dialog", { name: "Filters" });
+    await user.click(within(panel).getByRole("checkbox", { name: "Episode 1" }));
+    await user.click(within(panel).getByRole("checkbox", { name: "Episode 3" }));
+    const cliffhanger = within(panel).getByRole("group", { name: "Cliffhanger strength" });
+    await user.click(within(cliffhanger).getByRole("radio", { name: "4 of 4" }));
+    await user.click(within(panel).getByRole("button", { name: "Show 2 promos" }));
+    expect(screen.queryByRole("dialog", { name: "Filters" })).toBeNull();
+    expect(ranksOnCards()).toEqual([1, 3]);
+    expect(screen.getByRole("button", { name: /^Filters/ }).textContent).toBe("Filters2 active");
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Sort promos" }), "longest");
+    expect(ranksOnCards()).toEqual([3, 1]);
+    // Each card keeps the rank it was given.
+    expect(cardOf(3).textContent).toContain("Episode 3");
+
+    await user.click(screen.getByRole("button", { name: "Remove filter: Cliffhanger 4+ of 4" }));
+    expect(ranksOnCards()).toEqual([3, 1, 2]);
+
+    for (const call of Object.values(calls)) expect(call).not.toHaveBeenCalled();
+  });
+
+  it("says when nothing matches and clears everything in one step", async () => {
+    const user = userEvent.setup();
+    show();
+    await user.type(screen.getByRole("searchbox", { name: "Search promos" }), "zzzz-nothing");
+    expect(await screen.findByRole("heading", { name: "No promos match" })).toBeTruthy();
+    expect(screen.getByText("0 of 5 promos")).toBeTruthy();
+    const clears = screen.getAllByRole("button", { name: "Clear all" });
+    await user.click(clears[clears.length - 1] as HTMLElement);
+    expect(ranksOnCards()).toEqual([1, 2, 3, 4, 5]);
+    expect(screen.queryByText(/of 5 promos/)).toBeNull();
+  });
+
+  it("moves through promos in the order shown", async () => {
+    const user = userEvent.setup();
+    show();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Sort promos" }), "shortest");
+    await user.click(card(5));
+    const panel = await detail();
+    await user.click(within(panel).getByRole("button", { name: /Next/ }));
+    expect(await within(panel).findByRole("heading", { name: "Promo 2" })).toBeTruthy();
+  });
+});

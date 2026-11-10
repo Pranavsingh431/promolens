@@ -1,9 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 
 import type { AnalysisJob } from "@/domain/analysis-job";
 import { formatRange, formatSeconds } from "@/client/format";
+import {
+  activeFilters,
+  episodesIn,
+  NO_FILTERS,
+  selectRows,
+  type Filters,
+  type SortKey,
+} from "@/client/promo-filters";
 import { buildResultsModel, type PromoRow, type UnevaluatedRow } from "@/client/results-model";
 import type { AnalysisResults, AnalysisService } from "@/client/service";
 import { createEpisodeCache } from "@/client/use-episodes";
@@ -16,6 +33,7 @@ import { DetailShell } from "./detail-shell";
 import { ExportControls } from "./export-controls";
 import { PromoCard } from "./promo-card";
 import { PromoDetail, UnevaluatedDetail, type DetailNav } from "./promo-detail";
+import { PromoToolbar } from "./promo-filters";
 
 type ResultsViewProps = {
   service: AnalysisService;
@@ -56,6 +74,26 @@ export default function ResultsView({
     () => [...model.recommended, ...model.alternatives],
     [model.recommended, model.alternatives],
   );
+  // Search, filters, and order only change what is shown. Ranks and results stay as stored.
+  const [query, setQuery] = useState("");
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [sort, setSort] = useState<SortKey>("recommended");
+  const deferredQuery = useDeferredValue(query);
+  const recommended = useMemo(
+    () => selectRows(model.recommended, deferredQuery, filters, sort),
+    [model.recommended, deferredQuery, filters, sort],
+  );
+  const alternatives = useMemo(
+    () => selectRows(model.alternatives, deferredQuery, filters, sort),
+    [model.alternatives, deferredQuery, filters, sort],
+  );
+  const narrowing = deferredQuery.trim() !== "" || activeFilters(filters).length > 0;
+  const clearAll = useCallback(() => {
+    setQuery("");
+    setFilters(NO_FILTERS);
+  }, []);
+  const episodes = useMemo(() => episodesIn(allRows), [allRows]);
+
   const selectedRow = allRows.find((row) => row.id === selectedId) ?? null;
   const selectedGap = model.unevaluated.find((row) => row.id === selectedId) ?? null;
   const showing = selectedRow !== null || selectedGap !== null;
@@ -99,9 +137,14 @@ export default function ResultsView({
   // Removes the history entry added on open; the popstate above clears the selection.
   const close = useCallback(() => window.history.back(), []);
 
-  // Previous and next stay within the list the open promo belongs to.
+  // Previous and next stay within the list the open promo belongs to, as it is shown.
   function navFor(row: PromoRow): DetailNav {
-    const group = row.status === "recommended" ? model.recommended : model.alternatives;
+    const shown = row.status === "recommended" ? recommended : alternatives;
+    const group = shown.some((item) => item.id === row.id)
+      ? shown
+      : row.status === "recommended"
+        ? model.recommended
+        : model.alternatives;
     const index = group.findIndex((item) => item.id === row.id);
     const before = group[index - 1];
     const after = group[index + 1];
@@ -216,26 +259,63 @@ export default function ResultsView({
         </div>
       ) : (
         <>
-          <RecommendedList
-            rows={model.recommended}
-            activeId={selectedId}
-            onOpen={setSelectedId}
-            cardRef={cardRef}
-          />
+          {allRows.length > 1 ? (
+            <PromoToolbar
+              query={query}
+              onQuery={setQuery}
+              filters={filters}
+              onFilters={setFilters}
+              sort={sort}
+              onSort={setSort}
+              episodes={episodes}
+              hasMultiSegment={allRows.some((row) => row.promo.segments.length > 1)}
+              shown={recommended.length}
+              total={model.recommended.length}
+              onClearAll={clearAll}
+            />
+          ) : null}
+
+          {narrowing && recommended.length === 0 && model.recommended.length > 0 ? (
+            <div className="mt-6">
+              <EmptyState title="No promos match" headingLevel="h2">
+                Try removing a filter or searching for something else.
+                <span className="mt-4 block">
+                  <Button variant="secondary" onClick={clearAll}>
+                    Clear all
+                  </Button>
+                </span>
+              </EmptyState>
+            </div>
+          ) : (
+            <RecommendedList
+              rows={recommended}
+              activeId={selectedId}
+              onOpen={setSelectedId}
+              cardRef={cardRef}
+              rankedOrder={sort === "recommended"}
+            />
+          )}
 
           <div className="mt-12 space-y-6 border-t border-line pt-6">
             {model.alternatives.length ? (
               <details onToggle={(event) => setAlternativesOpen(event.currentTarget.open)}>
                 <summary className="cursor-pointer font-semibold">
-                  Alternatives ({model.alternatives.length})
+                  Alternatives (
+                  {narrowing
+                    ? `${alternatives.length} of ${model.alternatives.length}`
+                    : model.alternatives.length}
+                  )
                 </summary>
                 <p className="mt-2 text-sm text-ink-muted">
                   These passed every check but did not make the list, often because they repeat a
                   recommended moment.
                 </p>
+                {alternativesOpen && narrowing && alternatives.length === 0 ? (
+                  <p className="mt-4 text-sm text-ink-muted">No alternatives match.</p>
+                ) : null}
                 {alternativesOpen ? (
                   <ol className="mt-4 space-y-3">
-                    {model.alternatives.map((row) => (
+                    {alternatives.map((row) => (
                       <li key={row.id}>
                         <PromoCard
                           row={row}
@@ -332,14 +412,17 @@ function RecommendedList({
   activeId,
   onOpen,
   cardRef,
+  rankedOrder,
 }: {
   rows: PromoRow[];
   activeId: string | null;
   onOpen: (id: string) => void;
   cardRef: (id: string) => (element: HTMLButtonElement | null) => void;
+  /** The note about head-to-head comparisons only makes sense in ranked order. */
+  rankedOrder: boolean;
 }) {
   return (
-    <section aria-labelledby="recommended-heading" className="mt-8">
+    <section aria-labelledby="recommended-heading" className="mt-6">
       <h2 id="recommended-heading" className="sr-only">
         Recommended ({rows.length})
       </h2>
@@ -347,7 +430,8 @@ function RecommendedList({
         <ol className="space-y-4">
           {rows.map((row, index) => (
             <li key={row.id}>
-              {index > 0 &&
+              {rankedOrder &&
+              index > 0 &&
               row.promo.ranking.pairwise === null &&
               rows[index - 1]?.promo.ranking.pairwise !== null ? (
                 <p className="mb-4 border-t border-line pt-4 text-sm text-ink-muted">

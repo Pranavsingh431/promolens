@@ -45,6 +45,11 @@ export type ResultsModel = {
 
 const SEVERITY_ORDER = { important: 0, content: 1, minor: 2 } as const;
 
+/** Things an editor should act on before posting: review flags first, then serious warnings. */
+export function attentionNotes(row: PromoRow): Note[] {
+  return [...row.review, ...row.warnings.filter((w) => w.severity !== "minor")];
+}
+
 function row(
   promo: Recommendation,
   status: PromoRow["status"],

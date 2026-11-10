@@ -1,16 +1,12 @@
 import { memo } from "react";
 
 import { formatSeconds, joinClasses } from "@/client/format";
-import type { PromoRow } from "@/client/results-model";
-import type { Note } from "@/client/wording";
+import { attentionNotes, type PromoRow } from "@/client/results-model";
+
+export { attentionNotes };
 
 /** At most this many items on a card. The rest wait in the detail view. */
 const CARD_NOTES = 3;
-
-/** Things an editor should act on before posting: review flags first, then serious warnings. */
-export function attentionNotes(row: PromoRow): Note[] {
-  return [...row.review, ...row.warnings.filter((w) => w.severity !== "minor")];
-}
 
 export function describeWhere(row: PromoRow): string {
   return row.promo.segments
